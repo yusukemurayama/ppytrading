@@ -1,0 +1,45 @@
+{
+  "entry_groups": [
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "conditions": [
+        {
+          "findkey": "移動平均線のクロスオーバー",
+          "span_short": "25",
+          "span_long": "75"
+        }
+      ],
+      "rule": {
+        "findkey": "条件なし",
+        "timing": "CLOSE"
+      }
+    }
+  ],
+
+  "exit_groups": [
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "conditions": [
+        {
+          "findkey": "移動平均線のクロスオーバー2",
+          "span_short": "25",
+          "span_long": "75"
+        }
+      ],
+      "rule": {
+        "findkey": "条件なし",
+        "timing": "OPEN"
+      }
+    },
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "rule": {
+        "findkey": "日数経過で手仕舞い",
+        "period": 30
+      }
+    }
+  ]
+}

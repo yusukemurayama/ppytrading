@@ -1,0 +1,32 @@
+{
+  "entry_groups": [
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "rule": {
+        "findkey": "ブレイクアウト",
+        "span": 5,
+        "percentage": 0.5
+      }
+    }
+  ],
+
+  "exit_groups": [
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "rule": {
+        "findkey": "価格が移動平均線を抜けたら手仕舞い",
+        "span": 25
+      }
+    },
+    {
+      "enabled": true,
+      "order_type": "LONG",
+      "rule": {
+        "findkey": "トレーリングストップ",
+        "percentage": 10
+      }
+    }
+  ]
+}
