@@ -1,0 +1,3 @@
+# ppytrading
+## License
+MIT
