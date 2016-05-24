@@ -16,4 +16,4 @@ class Command(CommandBase):
     def _execute(self, options):
         logger.debug(self._command)
         logger.info('args: {}'.format(options.args))
-        print('Hello World!')
+        plogger.info('Hello World!')
