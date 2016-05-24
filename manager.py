@@ -2,6 +2,7 @@
 # coding: utf-8
 import os
 import sys
+import argparse
 import importlib
 from ppyt.const import BASE_DIR
 
@@ -17,18 +18,16 @@ def main():
     if len(sys.argv) <= 1:
         show_command_list()  # コマンド一覧を表示して終了します。
 
-    else:
-        # 実行するコマンド名と、そのコマンド名を除外した引数のリストを取得します。
-        import argparse
-        command, newargs = None, []
-        parser = argparse.ArgumentParser()
-        parser.add_argument('command', type=str, nargs=1)  # 最初のコマンドライン引数をコマンド名とします。
-        for args in parser.parse_known_args():  # parse_known_argsで余分な引数を無視します。
-            if hasattr(args, 'command'):
-                # nargs=1を指定しているので、サイズ1のlistにコマンド名が入っています。
-                command = args.command[0]
-                continue
-            newargs.extend(args)  # コマンド名以外を引数のリストに追加していきます。
+    # 実行するコマンド名と、そのコマンド名を除外した引数のリストを取得します。
+    command, newargs = None, []
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', type=str, nargs=1)  # 最初のコマンドライン引数をコマンド名とします。
+    for args in parser.parse_known_args():  # parse_known_argsで余分な引数を無視します。
+        if hasattr(args, 'command'):
+            # nargs=1を指定しているので、サイズ1のlistにコマンド名が入っています。
+            command = args.command[0]
+            continue
+        newargs.extend(args)  # コマンド名以外を引数のリストに追加していきます。
 
     # 実行するスクリプトを決定します。
     if command is None or command + '.py' not in os.listdir(SCRIPT_DIR):
