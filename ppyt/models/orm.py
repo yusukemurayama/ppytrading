@@ -251,11 +251,11 @@ class HistoryBase(object):
     各銘柄毎にHistoryBaseのサブクラスが作られ、それに応じて銘柄毎にテーブルが作成されます。"""
 
     date = Column(Date, primary_key=True)  # 日付
-    raw_open_price = Column(Float, nullable=False)  # 始値（調整前）
-    raw_high_price = Column(Float, nullable=False)  # 高値（調整前）
-    raw_low_price = Column(Float, nullable=False)  # 安値（調整前）
-    raw_close_price = Column(Float, nullable=False)  # 終値（調整前）
-    close_price = Column(Float, nullable=False)  # 終値（調整後）
+    raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
+    open_price = Column(Float, nullable=False)  # 始値
+    high_price = Column(Float, nullable=False)  # 高値
+    low_price = Column(Float, nullable=False)  # 安値
+    close_price = Column(Float, nullable=False)  # 終値
     volume = Column(Integer, nullable=False)  # 出来高
 
     @declared_attr
@@ -335,8 +335,8 @@ class HistoryBase(object):
         return klass
 
     @classmethod
-    def save(cls, session, date, raw_open_price, raw_high_price,
-             raw_low_price, raw_close_price, close_price, volume):
+    def save(cls, session, date, open_price, high_price,
+             low_price, raw_close_price, close_price, volume):
         """レコードを新規作成・更新します。
 
         Args:
@@ -355,9 +355,9 @@ class HistoryBase(object):
             hist = cls()
             hist.date = date
 
-        hist.raw_open_price = str_to_number(raw_open_price)
-        hist.raw_high_price = str_to_number(raw_high_price)
-        hist.raw_low_price = str_to_number(raw_low_price)
+        hist.open_price = str_to_number(open_price)
+        hist.high_price = str_to_number(high_price)
+        hist.low_price = str_to_number(low_price)
         hist.raw_close_price = str_to_number(raw_close_price)
         hist.close_price = str_to_number(close_price)
         hist.volume = str_to_number(volume, int)
@@ -373,21 +373,6 @@ class HistoryBase(object):
             調整後の終値 / 調整前の終値
         """
         return self.close_price / self.raw_close_price
-
-    @property
-    def open_price(self):
-        """（調整後の）始値を取得します。"""
-        return self.raw_open_price * self.rate
-
-    @property
-    def high_price(self):
-        """（調整後の）高値を取得します。"""
-        return self.raw_high_price * self.rate
-
-    @property
-    def low_price(self):
-        """（調整後の）安値を取得します。"""
-        return self.raw_low_price * self.rate
 
 
 class FinancialData(Base):
