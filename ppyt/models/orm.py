@@ -82,6 +82,7 @@ class Sector(Base):
         session.add(sector)
         return sector, True
 
+
 # Sectorテーブルを作成します。
 Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
 
@@ -239,6 +240,7 @@ class Stock(Base):
             価格のリスト
         """
         return [getattr(self.histories[idx], price_type) for idx in range(len(self.histories))]
+
 
 # Stockテーブルを作成します。
 Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
@@ -443,6 +445,7 @@ class FinancialData(Base):
 
         if create_flag:
             session.add(f)  # 新規作成します。
+
 
 # FinancialDataテーブルを作成します。
 Base.metadata.create_all(engine, tables=[FinancialData.__table__], checkfirst=True)
