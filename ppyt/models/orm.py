@@ -6,7 +6,7 @@ from sqlalchemy import (
     create_engine, Column, ForeignKey, Integer, String,
     Float, Date, DateTime, SmallInteger, Boolean, UniqueConstraint,
 )
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, reconstructor
 from ppyt import const
 from ppyt.decorators import cached_property
@@ -83,10 +83,6 @@ class Sector(Base):
         return sector, True
 
 
-# Sectorテーブルを作成します。
-Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
-
-
 class Stock(Base):
     """銘柄の情報を持つクラスです。"""
 
@@ -117,20 +113,16 @@ class Stock(Base):
             ppyt.models.orm.HistoryBase（のサブクラス）のリスト
         """
         with start_session() as session:
-            # 銘柄ごとに異なるHistoryBaseを継承したクラスを取得します。
-            klass = HistoryBase.get_class(self)
-            if klass is None:
-                # クラスがない場合は空のリストを返します。
-                return []
+            query = session.query(History) \
+                .filter(History.stock_id == self.id)
 
-            query = session.query(klass)
             if self.start_date is not None:
                 # start_dateが設定されている場合は絞り込み条件に追加します。
-                query = query.filter(klass.date >= self.start_date)
+                query = query.filter(History.date >= self.start_date)
 
             if self.end_date is not None:
                 # end_dateが設定されている場合は絞り込み条件に追加します。
-                query = query.filter(klass.date <= self.end_date)
+                query = query.filter(History.date <= self.end_date)
 
             return query.order_by('date').all()
 
@@ -242,14 +234,9 @@ class Stock(Base):
         return [getattr(self.histories[idx], price_type) for idx in range(len(self.histories))]
 
 
-# Stockテーブルを作成します。
-Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
-
-
 class HistoryBase(object):
-    """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。
-    各銘柄毎にHistoryBaseのサブクラスが作られ、それに応じて銘柄毎にテーブルが作成されます。"""
-
+    """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。"""
+    stock_id = Column(Integer, primary_key=True)
     date = Column(Date, primary_key=True)  # 日付
     raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
     open_price = Column(Float, nullable=False)  # 始値
@@ -258,84 +245,8 @@ class HistoryBase(object):
     close_price = Column(Float, nullable=False)  # 終値
     volume = Column(Integer, nullable=False)  # 出来高
 
-    @declared_attr
-    def stock_id(cls):
-        """銘柄ID（FK）
-        ※インスタンス変数として持たせておくとForeignKeyは例外が発生したので、
-        declared_attrデコレータと共に定義してあります。
-
-        Returns:
-            銘柄ID
-        """
-        return Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'))
-
     @classmethod
-    def get_tablename(cls, stock):
-        """テーブル名を取得します。
-        銘柄ごとにテーブルを分けるため、銘柄ごとにユニークな名前を返します。
-
-        Args:
-            stock: 銘柄情報
-
-        Returns:
-            テーブル名（str）
-        """
-        return 'history_{}'.format(stock.symbol.lower())
-
-    @classmethod
-    def get_classname(cls, stock):
-        """銘柄情報に基づきクラス名を取得します。
-
-        Args:
-            stock: 銘柄情報
-
-        Returns:
-            クラス名（str）
-        """
-        return 'History{}'.format(stock.id)
-
-    @classmethod
-    def create_table(cls, stock):
-        """指定された銘柄の履歴テーブルを作成します。
-
-        Args:
-            銘柄を作成するテーブル
-        """
-        tablename = cls.get_tablename(stock)
-        if not engine.has_table(tablename):
-            # まだ存在しない場合はHistory_SYMBOLテーブルを作成します。
-            klass = cls.get_class(stock, skip_has_table=True)
-            Base.metadata.create_all(engine, tables=[klass.__table__])
-
-    @classmethod
-    def get_class(cls, stock, skip_has_table=False):
-        """HistoryBaseのサブクラスを取得します。クラスがまだ定義されていない場合は定義します。
-
-        Args:
-            stock: 銘柄情報
-            skip_has_table: Trueにするとテーブル作成をスキップします。
-
-        Returns:
-            HistoryBaseのサブクラス
-        """
-        tablename = cls.get_tablename(stock)
-        classname = cls.get_classname(stock)
-
-        if not skip_has_table and not engine.has_table(tablename):
-            # テーブルチェックありで、かつテーブルが無い場合はNoneを返します。
-            return None
-
-        if classname in DEFINED_TABLE_CLASSES:
-            klass = DEFINED_TABLE_CLASSES[classname]
-
-        else:
-            klass = type(classname, (HistoryBase, Base), {'__tablename__': tablename})
-            DEFINED_TABLE_CLASSES[classname] = klass
-
-        return klass
-
-    @classmethod
-    def save(cls, session, date, open_price, high_price,
+    def save(cls, session, stock_id, date, open_price, high_price,
              low_price, raw_close_price, close_price, volume):
         """レコードを新規作成・更新します。
 
@@ -343,7 +254,8 @@ class HistoryBase(object):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(date=date)
+        q = session.query(cls).filter_by(stock_id=stock_id, date=date)
+
         if session.query(q.exists()).scalar():
             # レコードが既に存在する場合は取得して上書きします。
             create_flag = False
@@ -353,6 +265,7 @@ class HistoryBase(object):
             # レコードが存在しない場合は新規作成します。
             create_flag = True
             hist = cls()
+            hist.stock_id = stock_id
             hist.date = date
 
         hist.open_price = str_to_number(open_price)
@@ -438,5 +351,12 @@ class FinancialData(Base):
             session.add(f)  # 新規作成します。
 
 
-# FinancialDataテーブルを作成します。
+class History(HistoryBase, Base):
+    __tablename__ = 'history'
+
+
+# テーブルを作成します。
+Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[FinancialData.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[History.__table__], checkfirst=True)

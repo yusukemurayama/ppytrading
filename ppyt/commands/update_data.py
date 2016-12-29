@@ -5,7 +5,7 @@ from datetime import datetime
 from ppyt import const
 from ppyt.commands import CommandBase
 from ppyt.exceptions import CommandError
-from ppyt.models.orm import start_session, Stock, HistoryBase, FinancialData
+from ppyt.models.orm import start_session, Stock, History, FinancialData
 
 logger = logging.getLogger(__name__)
 
@@ -158,15 +158,12 @@ class Command(CommandBase):
             logger.info('[{}]は見つかりませんでした。'.format(filepath))
             return
 
-        HistoryBase.create_table(stock)  # テーブルがまだない場合は作成します。
-        History = HistoryBase.get_class(stock)
-        History = HistoryBase.get_class(stock)
-
         with start_session(commit=True) as session:
             for data in self._iter_rows_from_csvfile(filepath, as_dict=True):
                 str_date = data['Date']
                 date = datetime.strptime(str_date, '%Y-%m-%d').date()
                 History.save(session=session,
+                             stock_id=stock.id,
                              date=date,
                              raw_close_price=data['Close'],
                              open_price=data['Adj. Open'],

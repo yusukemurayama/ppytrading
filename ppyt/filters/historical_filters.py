@@ -2,7 +2,7 @@
 import logging
 from sqlalchemy.sql import func
 from ppyt.filters import FilterBase
-from ppyt.models.orm import start_session, Stock, HistoryBase
+from ppyt.models.orm import start_session, Stock, History
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,12 @@ class AverageVolumeFilter(FilterBase):
                 if s.id not in stock_ids:
                     continue  # 既に除外されている銘柄はチェックしません。
 
-                klass = HistoryBase.get_class(s)
-                if klass is None:  # テーブルが存在しない場合
-                    continue
+                avg_volume = session.query(func.avg(History.volume)) \
+                    .filter(History.stock_id == s.id).scalar()
+                logger.debug('symbol - avg_volume: {} - {}'.format(
+                    s.symbol, avg_volume))
 
-                avg_volume = session.query(func.avg(klass.volume)).scalar()
-                logger.debug('avg_volume: {}'.format(avg_volume))
-                if float(avg_volume) >= self.volume:
+                if avg_volume is not None and float(avg_volume) >= self.volume:
                     # 過去の平均出来高が規定値を上回っている場合、絞り込み後のリストに追加します。
                     filtered_stock_ids.append(s.id)
 
