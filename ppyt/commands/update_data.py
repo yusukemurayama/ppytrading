@@ -46,6 +46,10 @@ class Command(CommandBase):
             for market_id in const.MARKET_DATA.keys():
                 self.__import_stock_list_from_csv(market_id)
 
+        # symbolの一覧を取得します。
+        with start_session() as session:
+            self.symbols = [s.symbol for s in session.query(Stock).all()]
+
         if mode in (self.MODE_STOCK, self.MODE_FINANCIAL, self.MODE_ALL):  # Financial Data更新
             self.__import_financial_data_from_csv()
 
@@ -113,6 +117,11 @@ class Command(CommandBase):
             for row in iter_rows():
                 logger.debug('row: {}'.format(row))
                 symbol = row['Symbol']
+
+                if symbol not in self.symbols:
+                    logger.info('銘柄[{}]は登録されていません。'.format(symbol))
+                    continue
+
                 year = row['Year']
                 quarter = row.get('Quarter')
                 filing_date = datetime.strptime(row['Filing Date'], '%Y-%m-%d').date()
