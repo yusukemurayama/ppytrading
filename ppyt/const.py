@@ -23,7 +23,7 @@ DSN = 'sqlite:///{}'.format(
 )
 
 # Logファイルのパスです。
-LOG_FILEPATH = 'logs/ppyt.log'
+LOG_DIR = os.path.join(PRJ_DIR, 'logs')
 
 # 集計結果を計算できない場合に表示する文字です。
 # 0で除算するのを回避したときなどに使います。

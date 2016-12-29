@@ -5,6 +5,7 @@ import os
 import abc
 import json
 import re
+from datetime import date
 import numpy as np
 from ppyt import const
 from ppyt.exceptions import CommandError, NewInstanceError, ArgumentError
@@ -74,13 +75,25 @@ class CommandBase(metaclass=abc.ABCMeta):
         Arguments:
             verbose: Trueにすると詳細表示モードになります。
         """
-        level = logging.DEBUG if verbose else logging.INFO
-        fmt = '%(asctime)s - %(filename)s.%(funcName)s#%(lineno)s - %(levelname)s - %(message)s'
-        kwds = {}
-        if level == logging.INFO:  # INFOレベルの場合は出力先をファイルにします。
-            # kwds['filename'] = const.LOG_FILEPATH
-            pass
-        logging.basicConfig(level=level, format=fmt, **kwds)
+        logger = logging.getLogger('')  # Root Logger
+        logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(filename)s.%(funcName)s#%(lineno)s '
+                                      '- %(levelname)s - %(message)s')
+
+        # コンソール
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        del handler
+
+        # ファイル
+        handler = logging.FileHandler(os.path.join(
+            const.LOG_DIR, '{}-command.log'.format(date.today().strftime('%Y%m%d'))))
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        del handler
 
         # SQLAlchemyのログレベルを変更します。
         logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG if verbose else logging.WARN)
@@ -329,13 +342,13 @@ class CommandBase(metaclass=abc.ABCMeta):
                 plogger.info('ディレクトリ[{}]を作成しました。'.format(
                     os.path.relpath(dirpath, start=const.PRJ_DIR)))
 
-    def _iter_rows_from_csvfile(self, filepath, encoding=None, skip_header=True):
+    def _iter_rows_from_csvfile(self, filepath, encoding=None, as_dict=False):
         """CSVファイルを読み込んで行を取得します。
 
         Args:
             filepath: CSVファイルのパス
             encoding: 読み込むCSVファイルのエンコーディング
-            skip_header: Trueの場合はヘッダ行を飛ばします。
+            as_dict: listではなくdict型で返します。
 
         Raises:
             Exception: 拡張子が.csvでない場合に発生します。※拡張子のみで、中身はチェックしません。
@@ -351,10 +364,34 @@ class CommandBase(metaclass=abc.ABCMeta):
         # 改行コードの違いによって空行があった場合は飛ばします。
         reader = csv.reader([row for row in text.splitlines(False) if row.strip() != ''])
         del text
-        if skip_header:
-            next(reader)  # ヘッダー行を飛ばします。
+
+        headers = next(reader)
+
         for row in reader:
-            yield row
+            if not as_dict:
+                yield row
+            else:
+                # dict型として返します。
+                yield {header_name: row[i] for (i, header_name) in enumerate(headers)}
+
+    def _move_to_finished_dir(self, filepath):
+        """ファイルを完了済みディレクトリに移動します。
+
+        Args:
+            filepath: 移動するファイル
+        """
+        # 出力先を決定します。
+        # 例:
+        #   FROM: /path/to/data/history/foo.csv
+        #   TO:   /path/to/data/finished/history/foo.csv
+        dest_path = os.path.join(const.DATA_DIR,
+                                 'finished',
+                                 os.path.relpath(filepath, const.DATA_DIR))
+        logger.debug('dest_path: %s' % dest_path)
+
+        # ファイルを移動します。
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        os.rename(filepath, dest_path)
 
     def __update_kwds(self, kwds):
         """引数で与えられたdict型オブジェクトに含まれる、
