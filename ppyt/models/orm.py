@@ -3,8 +3,9 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, ForeignKey, Integer, String,
+    create_engine, Column, Integer, String,
     Float, Date, DateTime, SmallInteger, Boolean, UniqueConstraint,
+    ForeignKeyConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, reconstructor
@@ -85,14 +86,16 @@ class Sector(Base):
 
 class Stock(Base):
     """銘柄の情報を持つクラスです。"""
-
     __tablename__ = 'stock'
+    __table_args__ = (
+        ForeignKeyConstraint(['sector_id'], ['sector.id'], ondelete='RESTRICT'),
+    )
+
     id = Column(Integer, primary_key=True)
     name = Column(String(64), nullable=False)  # 銘柄の名前
     symbol = Column(String(16), nullable=False, unique=True)  # 銘柄のシンボル
     market_id = Column(Integer, nullable=False)  # マーケットID
-    sector_id = Column(Integer, ForeignKey('sector.id', ondelete='RESTRICT'),
-                       index=True, nullable=False)  # セクターID
+    sector_id = Column(Integer, index=True, nullable=False)  # セクターID
     activated = Column(Boolean, default=False)  # Trueだとbacktestなどの対象になります。
     created_at = Column(DateTime, default=datetime.now())  # 作成日時
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
@@ -236,6 +239,11 @@ class Stock(Base):
 
 class HistoryBase(object):
     """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。"""
+    __table_args__ = (
+        ForeignKeyConstraint(['stock_id'], ['stock.id'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
+    )
+
     stock_id = Column(Integer, primary_key=True)
     date = Column(Date, primary_key=True)  # 日付
     raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
@@ -288,16 +296,21 @@ class HistoryBase(object):
         return self.close_price / self.raw_close_price
 
 
+class History(HistoryBase, Base):
+    __tablename__ = 'history'
+
+
 class FinancialData(Base):
     """ファイナンシャル情報を保持するクラスです。"""
     __tablename__ = 'financial_data'
     __table_args__ = (
         UniqueConstraint('stock_id', 'year', 'quarter'),
+        ForeignKeyConstraint(['stock_id'], ['stock.id'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
     )
 
     id = Column(Integer, primary_key=True)
-    stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'),
-                      index=True, nullable=False)  # 銘柄ID
+    stock_id = Column(Integer, index=True, nullable=False)  # 銘柄ID
     year = Column(SmallInteger, nullable=False)  # 年度
     quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
     filing_date = Column(Date, nullable=False)  # Filing Date
@@ -349,10 +362,6 @@ class FinancialData(Base):
 
         if create_flag:
             session.add(f)  # 新規作成します。
-
-
-class History(HistoryBase, Base):
-    __tablename__ = 'history'
 
 
 # テーブルを作成します。
