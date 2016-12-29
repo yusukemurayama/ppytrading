@@ -375,7 +375,7 @@ class CommandBase(metaclass=abc.ABCMeta):
                 # dict型として返します。
                 yield {header_name: row[i] for (i, header_name) in enumerate(headers)}
 
-    def _move_to_finished_dir(self, filepath):
+    def _move_to_done_dir(self, filepath):
         """ファイルを完了済みディレクトリに移動します。
 
         Args:
@@ -384,9 +384,9 @@ class CommandBase(metaclass=abc.ABCMeta):
         # 出力先を決定します。
         # 例:
         #   FROM: /path/to/data/history/foo.csv
-        #   TO:   /path/to/data/finished/20161229/history/foo.csv
+        #   TO:   /path/to/data/done/20161229/history/foo.csv
         dest_path = os.path.join(const.DATA_DIR,
-                                 'finished',
+                                 'done',
                                  self._yyyymmdd,
                                  os.path.relpath(filepath, const.DATA_DIR))
         logger.debug('dest_path: %s' % dest_path)

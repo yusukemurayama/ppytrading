@@ -90,7 +90,7 @@ class Command(CommandBase):
                 Stock.save(session=session, name=name, symbol=symbol,
                            sector_name=sector_name, market_id=market_id)
 
-        self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
+        self._move_to_done_dir(filepath)  # importしたファイルを移動します。
         logger.info('マーケット[{}]の銘柄リストのインポートを終了しました。'.format(market_name))
 
     def __import_financial_data_from_csv(self):
@@ -109,7 +109,7 @@ class Command(CommandBase):
                 for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
                     yield row
 
-                self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
+                self._move_to_done_dir(filepath)  # importしたファイルを移動します。
 
         logger.info('ファイナンシャルデータのインポートを開始しました。')
         skipped_symbols = set()
@@ -182,5 +182,5 @@ class Command(CommandBase):
                              close_price=data['Adj. Close'],
                              volume=data['Adj. Volume'])
 
-        self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
+        self._move_to_done_dir(filepath)  # importしたファイルを移動します。
         logger.info('Symbol [{}] の履歴データインポートを終了しました。'.format(stock.symbol))
