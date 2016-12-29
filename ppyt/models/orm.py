@@ -379,13 +379,15 @@ class FinancialData(Base):
     """ファイナンシャル情報を保持するクラスです。"""
     __tablename__ = 'financial_data'
     __table_args__ = (
-        UniqueConstraint('stock_id', 'year'),  # ユニーク制約を追加します。
+        UniqueConstraint('stock_id', 'year', 'quarter'),
     )
 
     id = Column(Integer, primary_key=True)
     stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'),
                       index=True, nullable=False)  # 銘柄ID
     year = Column(SmallInteger, nullable=False)  # 年度
+    quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
+    filing_date = Column(Date, nullable=False)  # Filing Date
     revenue = Column(Float, nullable=True)  # 売上
     net_income = Column(Float, nullable=True)  # 純利益
     cf_ope = Column(Float, nullable=True)  # キャッシュフロー（営業活動）
@@ -395,7 +397,7 @@ class FinancialData(Base):
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
 
     @classmethod
-    def save(cls, session, stock, year, revenue, net_income,
+    def save(cls, session, stock, year, filing_date, revenue, net_income,
              cf_ope, cf_inv, cf_fin):
         """レコードを新規作成・更新します。
 
@@ -415,18 +417,22 @@ class FinancialData(Base):
             f.stock_id = stock.id
             f.year = year
 
-        f.revenue = revenue or None
-        f.net_income = net_income or None
-        f.cf_ope = cf_ope or None
-        f.cf_inv = cf_inv or None
-        f.cf_fin = cf_fin or None
+        f.filing_date = filing_date
 
-        # 型を変換します。
-        f.revenue = str_to_number(f.revenue)
-        f.net_income = str_to_number(f.net_income)
-        f.cf_ope = str_to_number(f.cf_ope)
-        f.cf_inv = str_to_number(f.cf_inv)
-        f.cf_fin = str_to_number(f.cf_fin)
+        if revenue:
+            f.revenue = str_to_number(revenue)
+
+        if net_income:
+            f.net_income = str_to_number(net_income)
+
+        if cf_ope:
+            f.cf_ope = str_to_number(cf_ope)
+
+        if cf_inv:
+            f.cf_inv = str_to_number(cf_inv)
+
+        if cf_fin:
+            f.cf_fin = str_to_number(cf_fin)
 
         if create_flag:
             session.add(f)  # 新規作成します。
