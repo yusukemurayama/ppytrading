@@ -42,17 +42,6 @@ class CashFlowIncreasingFilter(FilterBase):
         Returns:
             絞り込み後の銘柄IDのリスト
         """
-        data = defaultdict(list)
-        symbol_map = {s.symbol: s for s in stocks}
-
-        with start_session() as session:
-            for fin in session.query(FinancialData).order_by('symbol', 'year') \
-                    .filter_by(quarter=None):
-                if fin.symbol not in symbol_map.keys():
-                    continue  # 既に除外されている銘柄はチェックしません。
-
-                data[fin.symbol].append(fin.cf_ope)
-
         def is_increasing(li):
             """listに含まれる値（営業キャッシュフロー）が後ろに行くごとに増加しているかを判定します。
 
@@ -73,5 +62,16 @@ class CashFlowIncreasingFilter(FilterBase):
                 pre_cf_ope = cf_ope  # 次のループのために、営業キャッシュフローを更新しておきます。
 
             return True
+
+        data = defaultdict(list)
+        symbol_map = {s.symbol: s for s in stocks}
+
+        with start_session() as session:
+            for fin in session.query(FinancialData).order_by('symbol', 'year') \
+                    .filter_by(quarter=None):
+                if fin.symbol not in symbol_map.keys():
+                    continue  # 既に除外されている銘柄はチェックしません。
+
+                data[fin.symbol].append(fin.cf_ope)
 
         return [symbol_map[symbol] for (symbol, li) in data.items() if is_increasing(li)]
