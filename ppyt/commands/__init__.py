@@ -51,6 +51,7 @@ class CommandBase(metaclass=abc.ABCMeta):
         self._add_options(parser)
         options = parser.parse_args(self._args)
 
+        self._yyyymmdd = date.today().strftime('%Y%m%d')
         self._set_logger(options.verbose)
         np.seterr(invalid='ignore')
 
@@ -89,7 +90,7 @@ class CommandBase(metaclass=abc.ABCMeta):
 
         # ファイル
         handler = logging.FileHandler(os.path.join(
-            const.LOG_DIR, '{}-command.log'.format(date.today().strftime('%Y%m%d'))))
+            const.LOG_DIR, '{}-command.log'.format(self._yyyymmdd)))
         handler.setLevel(logging.INFO)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -383,9 +384,10 @@ class CommandBase(metaclass=abc.ABCMeta):
         # 出力先を決定します。
         # 例:
         #   FROM: /path/to/data/history/foo.csv
-        #   TO:   /path/to/data/finished/history/foo.csv
+        #   TO:   /path/to/data/finished/20161229/history/foo.csv
         dest_path = os.path.join(const.DATA_DIR,
                                  'finished',
+                                 self._yyyymmdd,
                                  os.path.relpath(filepath, const.DATA_DIR))
         logger.debug('dest_path: %s' % dest_path)
 
