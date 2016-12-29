@@ -64,8 +64,7 @@ class Command(CommandBase):
                     msg += 'を実行して銘柄情報を取り込んでください。'
                     raise CommandError(msg)
 
-            for stock in stocks:
-                self.__import_histories_from_csv(stock)
+            self.__import_histories_from_csv()
 
     def __import_stock_list_from_csv(self, market_id):
         """銘柄情報をCSVファイルから取得してインポートします。
@@ -148,39 +147,42 @@ class Command(CommandBase):
 
         logger.info('ファイナンシャルデータのインポートを終了しました。')
 
-    def __import_histories_from_csv(self, stock):
-        """履歴関連のデータをCSVファイルから取得してインポートします。
+    def __import_histories_from_csv(self):
+        """履歴関連のデータをCSVファイルから取得してインポートします。"""
+        def generate_row():
+            for filename in os.listdir(const.DATA_DIR_HISTORY):
+                logger.info('ファイル[{}]をインポートします。'.format(
+                    filename))
+                filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
+                for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                    yield row
 
-        Args:
-            stock: インポート対象の銘柄情報
-        """
-        logger.info('Symbol [{}] の履歴データインポートを開始しました。'.format(stock.symbol))
-        filepath = os.path.join(const.DATA_DIR_HISTORY, '{}.csv'.format(stock.symbol.lower()))
-        logger.debug('filepath: {}'.format(filepath))
+                self._move_to_done_dir(filepath)  # importしたファイルを移動します。
+                logger.info('ファイル[{}]のインポートが完了しました。'.format(
+                    filename))
 
-        if not os.path.isfile(filepath):
-            if stock.activated:  # 銘柄が使用中の場合は例外を投げます。
-                msg = 'ファイル: [{}]は存在しないので' \
-                    'データをインポートできませんでした。'.format(filepath)
-                raise CommandError(msg)
+        logger.info('履歴データインポートを開始しました。')
 
-            # 銘柄が使用中でない場合は、ファイルが無くても処理を続けます。
-            logger.info('[{}]は見つかりませんでした。'.format(filepath))
-            return
+        for row in generate_row():
+            with start_session(commit=True) as session:
+                symbol = row['Symbol']
+                date = datetime.strptime(row['Date'], '%Y-%m-%d').date()
 
-        with start_session(commit=True) as session:
-            for data in self._iter_rows_from_csvfile(filepath, as_dict=True):
-                str_date = data['Date']
-                date = datetime.strptime(str_date, '%Y-%m-%d').date()
+                if symbol not in self.symbols:
+                    logger.warn('銘柄[{}]は登録されていません。'.format(symbol))
+                    continue
+
+                logger.info('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
+                    symbol, date))
+
                 History.save(session=session,
-                             symbol=stock.symbol,
+                             symbol=symbol,
                              date=date,
-                             raw_close_price=data['Close'],
-                             open_price=data['Adj. Open'],
-                             high_price=data['Adj. High'],
-                             low_price=data['Adj. Low'],
-                             close_price=data['Adj. Close'],
-                             volume=data['Adj. Volume'])
+                             raw_close_price=row['Close'],
+                             open_price=row['Adj. Open'],
+                             high_price=row['Adj. High'],
+                             low_price=row['Adj. Low'],
+                             close_price=row['Adj. Close'],
+                             volume=row['Adj. Volume'])
 
-        self._move_to_done_dir(filepath)  # importしたファイルを移動します。
-        logger.info('Symbol [{}] の履歴データインポートを終了しました。'.format(stock.symbol))
+        logger.info('履歴データインポートを終了しました。')
