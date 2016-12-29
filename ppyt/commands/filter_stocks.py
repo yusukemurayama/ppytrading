@@ -33,7 +33,7 @@ class Command(CommandBase):
         """
         with start_session() as session:
             # 最初は全ての銘柄をリストに入れておきます。
-            stocks = list(session.query(Stock).order_by('id').all())
+            stocks = list(session.query(Stock).order_by('symbol').all())
 
         for f in filters:
             # フィルタを使ってstock絞り込みます。

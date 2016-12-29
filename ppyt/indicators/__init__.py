@@ -168,7 +168,7 @@ class IndicatorCache(SingletonMixin):
         def is_valid_kwvalue(v):
             return v is None or type(v) in (bool, str, int, float)
 
-        if stock is None or stock.id is None:
+        if stock is None or stock.symbol is None:
             return None
 
         if any([not is_valid_kwvalue(v) for v in kwds.values()]):

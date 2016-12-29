@@ -131,7 +131,7 @@ class Result(object):
     @property
     def stocks(self):
         """トレードが完了した銘柄一覧を取得します。"""
-        return {pos.stock.id: pos.stock for pos in self.positions}.values()
+        return {pos.stock.symbol: pos.stock for pos in self.positions}.values()
 
     @property
     def simple_result_md(self):
@@ -161,7 +161,7 @@ class Result(object):
         output = ''
 
         # 銘柄指定の場合は、対象の銘柄で絞り込みます。
-        positions = [pos for pos in self.positions if stock.id == pos.stock.id] if stock else self.positions
+        positions = [pos for pos in self.positions if stock.symbol == pos.stock.symbol] if stock else self.positions
 
         # サマリーを追加します。
         output += self.__get_summary_md(positions)

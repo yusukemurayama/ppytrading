@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from sqlalchemy import (
     create_engine, Column, Integer, String,
-    Float, Date, DateTime, SmallInteger, Boolean, UniqueConstraint,
+    Float, Date, DateTime, SmallInteger, Boolean,
     ForeignKeyConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -92,9 +92,8 @@ class Stock(Base):
     )
     SYMBOL_LENGTH = 16  # symbolカラムの長さを定義します。
 
-    id = Column(Integer, primary_key=True)
+    symbol = Column(String(SYMBOL_LENGTH), primary_key=True)  # 銘柄のシンボル
     name = Column(String(64), nullable=False)  # 銘柄の名前
-    symbol = Column(String(SYMBOL_LENGTH), nullable=False, unique=True)  # 銘柄のシンボル
     market_id = Column(Integer, nullable=False)  # マーケットID
     sector_id = Column(Integer, index=True, nullable=False)  # セクターID
     activated = Column(Boolean, default=False)  # Trueだとbacktestなどの対象になります。
@@ -304,13 +303,13 @@ class FinancialData(Base):
     """ファイナンシャル情報を保持するクラスです。"""
     __tablename__ = 'financial_data'
     __table_args__ = (
-        UniqueConstraint('symbol', 'year', 'quarter'),
+        # UniqueConstraint('symbol', 'year', 'quarter'),
         ForeignKeyConstraint(['symbol'], ['stock.symbol'],
                              onupdate='CASCADE', ondelete='CASCADE'),
     )
 
-    id = Column(Integer, primary_key=True)
-    symbol = Column(String(Stock.SYMBOL_LENGTH), nullable=False, index=True)
+    symbol = Column(String(Stock.SYMBOL_LENGTH), primary_key=True)
+    period = Column(String(6), primary_key=True)  # 期を表すコード 例: 16A, 16Q1
     year = Column(SmallInteger, nullable=False)  # 年度
     quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
     filing_date = Column(Date, nullable=False)  # Filing Date
@@ -322,6 +321,14 @@ class FinancialData(Base):
     created_at = Column(DateTime, default=datetime.now())  # 作成日時
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
 
+    @staticmethod
+    def get_period(year, quarter):
+        """期を表す文字列を取得します。"""
+        if quarter is None:
+            return '{}A'.format(year)
+
+        return '{}Q{}'.format(year, quarter)
+
     @classmethod
     def save(cls, session, stock, year, quarter, filing_date, revenue, net_income,
              cf_ope, cf_inv, cf_fin):
@@ -331,7 +338,8 @@ class FinancialData(Base):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(symbol=stock.symbol, year=year, quarter=quarter)
+        period = cls.get_period(year=year, quarter=quarter)
+        q = session.query(cls).filter_by(symbol=stock.symbol, period=period)
 
         if session.query(q.exists()).scalar():
             create_flag = False
@@ -341,6 +349,7 @@ class FinancialData(Base):
             create_flag = True
             f = cls()
             f.symbol = stock.symbol
+            f.period = period
             f.year = year
             f.quarter = quarter
 

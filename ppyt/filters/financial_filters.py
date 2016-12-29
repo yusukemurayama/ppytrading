@@ -46,7 +46,8 @@ class CashFlowIncreasingFilter(FilterBase):
         symbol_map = {s.symbol: s for s in stocks}
 
         with start_session() as session:
-            for fin in session.query(FinancialData).order_by('symbol', 'year').all():
+            for fin in session.query(FinancialData).order_by('symbol', 'year') \
+                    .filter_by(quarter=None):
                 if fin.symbol not in symbol_map.keys():
                     continue  # 既に除外されている銘柄はチェックしません。
 
