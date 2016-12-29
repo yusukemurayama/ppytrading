@@ -114,6 +114,7 @@ class Command(CommandBase):
                 logger.debug('row: {}'.format(row))
                 symbol = row['Symbol']
                 year = row['Year']
+                quarter = row.get('Quarter')
                 filing_date = datetime.strptime(row['Filing Date'], '%Y-%m-%d').date()
                 revenue = row.get('Revenue')
                 net_income = row.get('Net Income')
@@ -127,8 +128,8 @@ class Command(CommandBase):
                     continue
 
                 stock = q.one()
-                FinancialData.save(session=session, stock=stock, year=year, revenue=revenue,
-                                   filing_date=filing_date, net_income=net_income,
+                FinancialData.save(session=session, stock=stock, year=year, quarter=quarter,
+                                   filing_date=filing_date, revenue=revenue, net_income=net_income,
                                    cf_ope=cf_ope, cf_inv=cf_inv, cf_fin=cf_fin)
 
         if skipped_symbols:  # 登録できなかった銘柄があった場合
@@ -163,7 +164,7 @@ class Command(CommandBase):
                 str_date = data['Date']
                 date = datetime.strptime(str_date, '%Y-%m-%d').date()
                 History.save(session=session,
-                             stock_id=stock.id,
+                             symbol=stock.symbol,
                              date=date,
                              raw_close_price=data['Close'],
                              open_price=data['Adj. Open'],

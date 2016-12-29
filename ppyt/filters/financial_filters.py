@@ -29,7 +29,7 @@ class CashFlowIncreasingFilter(FilterBase):
         self.rate = 1 + percentage * 0.01
         self.years = years
 
-    def _filter_stock_ids(self, stock_ids):
+    def _filter_stocks(self, stocks):
         """銘柄を絞り込みます。
 
         絞り込み条件:
@@ -37,18 +37,20 @@ class CashFlowIncreasingFilter(FilterBase):
             - 毎年営業キャッシュフローがpercentage分増加している。
 
         Args:
-            stock_ids: 絞り込み前の銘柄IDのリスト
+            stocks: 絞り込み前の銘柄のリスト
 
         Returns:
             絞り込み後の銘柄IDのリスト
         """
         data = defaultdict(list)
+        symbol_map = {s.symbol: s for s in stocks}
+
         with start_session() as session:
-            for fin in session.query(FinancialData).order_by('stock_id', 'year').all():
-                if fin.stock_id not in stock_ids:
+            for fin in session.query(FinancialData).order_by('symbol', 'year').all():
+                if fin.symbol not in symbol_map.keys():
                     continue  # 既に除外されている銘柄はチェックしません。
 
-                data[fin.stock_id].append(fin.cf_ope)
+                data[fin.symbol].append(fin.cf_ope)
 
         def is_increasing(li):
             """listに含まれる値（営業キャッシュフロー）が後ろに行くごとに増加しているかを判定します。
@@ -71,4 +73,4 @@ class CashFlowIncreasingFilter(FilterBase):
 
             return True
 
-        return [stock_id for (stock_id, li) in data.items() if is_increasing(li)]
+        return [symbol_map[symbol] for (symbol, li) in data.items() if is_increasing(li)]

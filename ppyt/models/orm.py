@@ -117,8 +117,7 @@ class Stock(Base):
             ppyt.models.orm.HistoryBase（のサブクラス）のリスト
         """
         with start_session() as session:
-            query = session.query(History) \
-                .filter(History.stock_id == self.id)
+            query = session.query(History).filter_by(symbol=self.symbol)
 
             if self.start_date is not None:
                 # start_dateが設定されている場合は絞り込み条件に追加します。
@@ -241,14 +240,11 @@ class Stock(Base):
 class HistoryBase(object):
     """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。"""
     __table_args__ = (
-        ForeignKeyConstraint(['stock_id'], ['stock.id'],
-                             onupdate='CASCADE', ondelete='CASCADE'),
         ForeignKeyConstraint(['symbol'], ['stock.symbol'],
                              onupdate='CASCADE', ondelete='CASCADE'),
     )
 
-    stock_id = Column(Integer, primary_key=True)
-    symbol = Column(String(Stock.SYMBOL_LENGTH), nullable=False, index=True)
+    symbol = Column(String(Stock.SYMBOL_LENGTH), primary_key=True)
     date = Column(Date, primary_key=True)  # 日付
     raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
     open_price = Column(Float, nullable=False)  # 始値
@@ -258,7 +254,7 @@ class HistoryBase(object):
     volume = Column(Integer, nullable=False)  # 出来高
 
     @classmethod
-    def save(cls, session, stock_id, date, open_price, high_price,
+    def save(cls, session, symbol, date, open_price, high_price,
              low_price, raw_close_price, close_price, volume):
         """レコードを新規作成・更新します。
 
@@ -266,7 +262,7 @@ class HistoryBase(object):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(stock_id=stock_id, date=date)
+        q = session.query(cls).filter_by(symbol=symbol, date=date)
 
         if session.query(q.exists()).scalar():
             # レコードが既に存在する場合は取得して上書きします。
@@ -277,7 +273,7 @@ class HistoryBase(object):
             # レコードが存在しない場合は新規作成します。
             create_flag = True
             hist = cls()
-            hist.stock_id = stock_id
+            hist.symbol = symbol
             hist.date = date
 
         hist.open_price = str_to_number(open_price)
@@ -308,15 +304,12 @@ class FinancialData(Base):
     """ファイナンシャル情報を保持するクラスです。"""
     __tablename__ = 'financial_data'
     __table_args__ = (
-        UniqueConstraint('stock_id', 'year', 'quarter'),
-        ForeignKeyConstraint(['stock_id'], ['stock.id'],
-                             onupdate='CASCADE', ondelete='CASCADE'),
+        UniqueConstraint('symbol', 'year', 'quarter'),
         ForeignKeyConstraint(['symbol'], ['stock.symbol'],
                              onupdate='CASCADE', ondelete='CASCADE'),
     )
 
     id = Column(Integer, primary_key=True)
-    stock_id = Column(Integer, index=True, nullable=False)  # 銘柄ID
     symbol = Column(String(Stock.SYMBOL_LENGTH), nullable=False, index=True)
     year = Column(SmallInteger, nullable=False)  # 年度
     quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
@@ -330,7 +323,7 @@ class FinancialData(Base):
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
 
     @classmethod
-    def save(cls, session, stock, year, filing_date, revenue, net_income,
+    def save(cls, session, stock, year, quarter, filing_date, revenue, net_income,
              cf_ope, cf_inv, cf_fin):
         """レコードを新規作成・更新します。
 
@@ -338,7 +331,7 @@ class FinancialData(Base):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(stock_id=stock.id, year=year)
+        q = session.query(cls).filter_by(symbol=stock.symbol, year=year, quarter=quarter)
 
         if session.query(q.exists()).scalar():
             create_flag = False
@@ -347,8 +340,9 @@ class FinancialData(Base):
         else:
             create_flag = True
             f = cls()
-            f.stock_id = stock.id
+            f.symbol = stock.symbol
             f.year = year
+            f.quarter = quarter
 
         f.filing_date = filing_date
 

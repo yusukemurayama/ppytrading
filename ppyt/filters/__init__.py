@@ -26,13 +26,13 @@ class FilterBase(FinderMixin, ArgumentValidationMixin, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def _filter_stock_ids(self, stock_ids):
+    def _filter_stocks(self, stocks):
         """銘柄を絞り込みます。サブクラスでオーバーライドしてください。"""
         pass
 
-    def get_stock_ids(self, stock_ids):
+    def get_stocks(self, stocks):
         """銘柄を絞り込みます。"""
-        return self._filter_stock_ids(stock_ids)
+        return self._filter_stocks(stocks)
 
 
 class FilterTemplate(FilterBase):
@@ -44,7 +44,7 @@ class FilterTemplate(FilterBase):
         """初期化処理を行います。"""
         pass
 
-    def _filter_stock_ids(self, stock_ids):
+    def _filter_stocks(self, stocks):
         """銘柄を絞り込みます。
 
         絞り込み条件:
@@ -53,9 +53,9 @@ class FilterTemplate(FilterBase):
             - ...
 
         Args:
-            stock_ids: 絞り込み前の銘柄IDのリスト
+            stocks: 絞り込み前の銘柄IDのリスト
 
         Returns:
-            絞り込み後の銘柄IDのリスト
+            絞り込み後の銘柄のリスト
         """
         pass
