@@ -127,7 +127,7 @@ class Command(CommandBase):
         Args:
             symbols: 出力対象の銘柄情報のリスト
         """
-        def get_row(data, current_adjustment):
+        def get_row(data, adjustment):
             """CSVファイル1行分のデータを取得します。"""
             p = 1.5  # 終値から最大で何ドル離れる可能性があるかを定義します。
 
@@ -136,28 +136,40 @@ class Command(CommandBase):
 
             li = [random_price(), random_price(), random_price()]
             li.sort()  # 金額が低い順に並び替えます。
-            close_price = data['close_price'] * (current_adjustment / data['adjustment'])
-            low_price = close_price + li[0]
-            open_price = close_price + li[1]
-            high_price = close_price + li[2]
+            adj_close_price = data['close_price']
+            adj_low_price = adj_close_price + li[0]
+            adj_open_price = adj_close_price + li[1]
+            adj_high_price = adj_close_price + li[2]
+            adj_volume = random.randint(18**5, 10**7)
+            ratio = adjustment / data['adjustment']
+            open_price = adj_open_price * ratio
+            high_price = adj_high_price * ratio
+            low_price = adj_low_price * ratio
+            close_price = adj_close_price * ratio
+            volume = adj_volume * ratio
 
-            if close_price > high_price:
+            if adj_close_price > adj_high_price:
                 # 終値が高値を超えている場合は高値を終値に合わせます。
-                high_price = close_price
+                adj_high_price = adj_close_price
 
-            elif close_price < low_price:
+            elif adj_close_price < adj_low_price:
                 # 終値が安値ねを下回っている場合は安値を終値に合わせます。
-                low_price = close_price
+                adj_low_price = adj_close_price
 
             return (data['date'],
                     round(open_price, 2),
                     round(high_price, 2),
                     round(low_price, 2),
                     round(close_price, 2),
-                    random.randint(18**5, 10**7),
-                    data['close_price'])
+                    volume,
+                    round(adj_open_price, 2),
+                    round(adj_high_price, 2),
+                    round(adj_low_price, 2),
+                    round(adj_close_price, 2),
+                    adj_volume)
 
-        header = ('Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close',)
+        header = ('Date', 'Open', 'High', 'Low', 'Close', 'Volume',
+                  'Adj. Open', 'Adj. High', 'Adj. Low', 'Adj. Close', 'Adj. Volume')
         end_date = date.today() - timedelta(days=1)
         start_date = date(end_date.year-self.num_years+1, 1, 1)
         num_days = (end_date - start_date).days
@@ -177,7 +189,7 @@ class Command(CommandBase):
                     'adjustment': adjustment,
                 })
 
-                if random.randint(0, 1 / (adj_probability / 100)) == 0:
+                if random.randint(0, 1 / (adj_probability / 10)) == 0:
                     logger.debug('adjustment: {}: {}'.format(symbol, adjustment))
                     adjustment *= 2
 
