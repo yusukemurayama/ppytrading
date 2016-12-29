@@ -16,10 +16,12 @@ class Command(CommandBase):
     # 処理モードを定義します。update_dataのあとに指定することで、その処理モードが実行されます。
     MODE_STOCK = 'stock'
     MODE_HISTORY = 'history'
+    MODE_FINANCIAL = 'financial'
     MODE_ALL = 'all'
     MODES = (
         MODE_HISTORY,  # 銘柄情報更新モード
         MODE_STOCK,  # 履歴データ更新用モード
+        MODE_FINANCIAL,  # Financial Data更新モード
         MODE_ALL,  # 全実行モード
     )
 
@@ -44,6 +46,7 @@ class Command(CommandBase):
             for market_id in const.MARKET_DATA.keys():
                 self.__import_stock_list_from_csv(market_id)
 
+        if mode in (self.MODE_STOCK, self.MODE_FINANCIAL, self.MODE_ALL):  # Financial Data更新
             self.__import_financial_data_from_csv()
 
         if mode in (self.MODE_HISTORY, self.MODE_ALL):  # ヒストリカルデータ更新
@@ -76,13 +79,14 @@ class Command(CommandBase):
                                'ファイルが存在ません。'.format(filepath))
 
         with start_session(commit=True) as session:
-            for row in self._iter_rows_from_csvfile(filepath):
-                symbol = row[0]
-                name = row[1]
-                sector_name = row[2]
+            for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                symbol = row['Symbol']
+                name = row['Name']
+                sector_name = row['Sector']
                 Stock.save(session=session, name=name, symbol=symbol,
                            sector_name=sector_name, market_id=market_id)
 
+        self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
         logger.info('マーケット[{}]の銘柄リストのインポートを終了しました。'.format(market_name))
 
     def __import_financial_data_from_csv(self):
@@ -98,23 +102,33 @@ class Command(CommandBase):
                 if os.path.splitext(filename)[1] != '.csv':
                     continue
                 filepath = os.path.join(dirpath, filename)
-                for row in self._iter_rows_from_csvfile(filepath):
+                for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
                     yield row
+
+                self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
 
         logger.info('ファイナンシャルデータのインポートを開始しました。')
         skipped_symbols = set()
         with start_session(commit=True) as session:
             for row in iter_rows():
                 logger.debug('row: {}'.format(row))
-                symbol, year, revenue, net_income, cf_ope, cf_inv, cf_fin = row
+                symbol = row['Symbol']
+                year = row['Year']
+                filing_date = datetime.strptime(row['Filing Date'], '%Y-%m-%d').date()
+                revenue = row.get('Revenue')
+                net_income = row.get('Net Income')
+                cf_ope = row.get('Cash Flow From Operating Activities')
+                cf_inv = row.get('Cash Flow From Investing Activities')
+                cf_fin = row.get('Cash Flow From Financing Activities')
+
                 q = session.query(Stock).filter_by(symbol=symbol)
                 if not session.query(q.exists()).scalar():
                     skipped_symbols.add(symbol)
                     continue
 
                 stock = q.one()
-                FinancialData.save(session=session, stock=stock,
-                                   year=year, revenue=revenue, net_income=net_income,
+                FinancialData.save(session=session, stock=stock, year=year, revenue=revenue,
+                                   filing_date=filing_date, net_income=net_income,
                                    cf_ope=cf_ope, cf_inv=cf_inv, cf_fin=cf_fin)
 
         if skipped_symbols:  # 登録できなかった銘柄があった場合
@@ -149,16 +163,17 @@ class Command(CommandBase):
         History = HistoryBase.get_class(stock)
 
         with start_session(commit=True) as session:
-            for row in self._iter_rows_from_csvfile(filepath):
-                str_date, raw_open_price, raw_high_price, raw_low_price, \
-                    raw_close_price, volume, close_price = row
-
+            for data in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                str_date = data['Date']
                 date = datetime.strptime(str_date, '%Y-%m-%d').date()
-                History.save(session=session, date=date,
-                             raw_open_price=raw_open_price,
-                             raw_high_price=raw_high_price,
-                             raw_low_price=raw_low_price,
-                             raw_close_price=raw_close_price,
-                             close_price=close_price,
-                             volume=volume)
+                History.save(session=session,
+                             date=date,
+                             raw_close_price=data['Close'],
+                             open_price=data['Adj. Open'],
+                             high_price=data['Adj. High'],
+                             low_price=data['Adj. Low'],
+                             close_price=data['Adj. Close'],
+                             volume=data['Adj. Volume'])
+
+        self._move_to_finished_dir(filepath)  # importしたファイルを移動します。
         logger.info('Symbol [{}] の履歴データインポートを終了しました。'.format(stock.symbol))
