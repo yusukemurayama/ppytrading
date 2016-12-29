@@ -90,10 +90,11 @@ class Stock(Base):
     __table_args__ = (
         ForeignKeyConstraint(['sector_id'], ['sector.id'], ondelete='RESTRICT'),
     )
+    SYMBOL_LENGTH = 16  # symbolカラムの長さを定義します。
 
     id = Column(Integer, primary_key=True)
     name = Column(String(64), nullable=False)  # 銘柄の名前
-    symbol = Column(String(16), nullable=False, unique=True)  # 銘柄のシンボル
+    symbol = Column(String(SYMBOL_LENGTH), nullable=False, unique=True)  # 銘柄のシンボル
     market_id = Column(Integer, nullable=False)  # マーケットID
     sector_id = Column(Integer, index=True, nullable=False)  # セクターID
     activated = Column(Boolean, default=False)  # Trueだとbacktestなどの対象になります。
@@ -242,9 +243,12 @@ class HistoryBase(object):
     __table_args__ = (
         ForeignKeyConstraint(['stock_id'], ['stock.id'],
                              onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['symbol'], ['stock.symbol'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
     )
 
     stock_id = Column(Integer, primary_key=True)
+    symbol = Column(String(Stock.SYMBOL_LENGTH), nullable=False, index=True)
     date = Column(Date, primary_key=True)  # 日付
     raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
     open_price = Column(Float, nullable=False)  # 始値
@@ -307,10 +311,13 @@ class FinancialData(Base):
         UniqueConstraint('stock_id', 'year', 'quarter'),
         ForeignKeyConstraint(['stock_id'], ['stock.id'],
                              onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['symbol'], ['stock.symbol'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
     )
 
     id = Column(Integer, primary_key=True)
     stock_id = Column(Integer, index=True, nullable=False)  # 銘柄ID
+    symbol = Column(String(Stock.SYMBOL_LENGTH), nullable=False, index=True)
     year = Column(SmallInteger, nullable=False)  # 年度
     quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
     filing_date = Column(Date, nullable=False)  # Filing Date
