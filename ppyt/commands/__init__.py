@@ -10,6 +10,7 @@ import numpy as np
 from ppyt import const
 from ppyt.exceptions import CommandError, NewInstanceError, ArgumentError
 from ppyt.finders import SimpleFinder
+from ppyt.models.orm import Setting
 
 logger = logging.getLogger(__name__)
 plogger = logging.getLogger('print')
@@ -236,6 +237,10 @@ class CommandBase(metaclass=abc.ABCMeta):
 
         return {'entry_groups': entry_groups,
                 'exit_groups': exit_groups}
+
+    def _get_default_filterfile(self):
+        """デフォルトのfilterfileを取得します。"""
+        return Setting.get_value(Setting.KEY_DEFAULTFILTERFILE) or 'default'
 
     def _get_stock_filters(self, filterfile):
         """filterfileを解析してfilter系クラスのインスタンスを取得します。
