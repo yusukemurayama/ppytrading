@@ -374,8 +374,39 @@ class FinancialData(Base):
             session.add(f)  # 新規作成します。
 
 
+class Setting(Base):
+    """設定情報を保存するクラスです"""
+    __tablename__ = 'setting'
+
+    key = Column(String(64), primary_key=True)
+    value = Column(String(200), nullable=False)
+
+    @classmethod
+    def get_value(cls, key):
+        """keyに対応する値を取得します。"""
+        with start_session() as session:
+            row = session.query(cls).filter_by(key=key).one_or_none()
+            return row.value if row else None
+
+    @classmethod
+    def save(cls, key, value):
+        """設定を保存します。"""
+        with start_session(commit=True) as session:
+            row = session.query(cls).filter_by(key=key).one_or_none()
+
+            if not row:  # 新規作成の場合
+                row = cls()
+                row.key = key
+                row.value = value
+                session.add(row)
+
+            else:  # 更新の場合
+                row.value = value
+
+
 # テーブルを作成します。
 Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[FinancialData.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[History.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[Setting.__table__], checkfirst=True)
