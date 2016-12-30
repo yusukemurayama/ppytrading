@@ -3,10 +3,11 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, ForeignKey, Integer, String,
-    Float, Date, DateTime, SmallInteger, Boolean, UniqueConstraint,
+    create_engine, Column, Integer, String,
+    Float, Date, DateTime, SmallInteger, Boolean,
+    ForeignKeyConstraint
 )
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, reconstructor
 from ppyt import const
 from ppyt.decorators import cached_property
@@ -83,20 +84,18 @@ class Sector(Base):
         return sector, True
 
 
-# Sectorテーブルを作成します。
-Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
-
-
 class Stock(Base):
     """銘柄の情報を持つクラスです。"""
-
     __tablename__ = 'stock'
-    id = Column(Integer, primary_key=True)
+    __table_args__ = (
+        ForeignKeyConstraint(['sector_id'], ['sector.id'], ondelete='RESTRICT'),
+    )
+    SYMBOL_LENGTH = 16  # symbolカラムの長さを定義します。
+
+    symbol = Column(String(SYMBOL_LENGTH), primary_key=True)  # 銘柄のシンボル
     name = Column(String(64), nullable=False)  # 銘柄の名前
-    symbol = Column(String(16), nullable=False, unique=True)  # 銘柄のシンボル
     market_id = Column(Integer, nullable=False)  # マーケットID
-    sector_id = Column(Integer, ForeignKey('sector.id', ondelete='RESTRICT'),
-                       index=True, nullable=False)  # セクターID
+    sector_id = Column(Integer, index=True, nullable=False)  # セクターID
     activated = Column(Boolean, default=False)  # Trueだとbacktestなどの対象になります。
     created_at = Column(DateTime, default=datetime.now())  # 作成日時
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
@@ -117,20 +116,15 @@ class Stock(Base):
             ppyt.models.orm.HistoryBase（のサブクラス）のリスト
         """
         with start_session() as session:
-            # 銘柄ごとに異なるHistoryBaseを継承したクラスを取得します。
-            klass = HistoryBase.get_class(self)
-            if klass is None:
-                # クラスがない場合は空のリストを返します。
-                return []
+            query = session.query(History).filter_by(symbol=self.symbol)
 
-            query = session.query(klass)
             if self.start_date is not None:
                 # start_dateが設定されている場合は絞り込み条件に追加します。
-                query = query.filter(klass.date >= self.start_date)
+                query = query.filter(History.date >= self.start_date)
 
             if self.end_date is not None:
                 # end_dateが設定されている場合は絞り込み条件に追加します。
-                query = query.filter(klass.date <= self.end_date)
+                query = query.filter(History.date <= self.end_date)
 
             return query.order_by('date').all()
 
@@ -242,14 +236,14 @@ class Stock(Base):
         return [getattr(self.histories[idx], price_type) for idx in range(len(self.histories))]
 
 
-# Stockテーブルを作成します。
-Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
-
-
 class HistoryBase(object):
-    """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。
-    各銘柄毎にHistoryBaseのサブクラスが作られ、それに応じて銘柄毎にテーブルが作成されます。"""
+    """履歴情報（日毎の始値、終値などを保存持つ）の親クラスです。"""
+    __table_args__ = (
+        ForeignKeyConstraint(['symbol'], ['stock.symbol'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
+    )
 
+    symbol = Column(String(Stock.SYMBOL_LENGTH), primary_key=True)
     date = Column(Date, primary_key=True)  # 日付
     raw_close_price = Column(Float, nullable=False)  # 終値（株式分割調整前）
     open_price = Column(Float, nullable=False)  # 始値
@@ -258,84 +252,8 @@ class HistoryBase(object):
     close_price = Column(Float, nullable=False)  # 終値
     volume = Column(Integer, nullable=False)  # 出来高
 
-    @declared_attr
-    def stock_id(cls):
-        """銘柄ID（FK）
-        ※インスタンス変数として持たせておくとForeignKeyは例外が発生したので、
-        declared_attrデコレータと共に定義してあります。
-
-        Returns:
-            銘柄ID
-        """
-        return Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'))
-
     @classmethod
-    def get_tablename(cls, stock):
-        """テーブル名を取得します。
-        銘柄ごとにテーブルを分けるため、銘柄ごとにユニークな名前を返します。
-
-        Args:
-            stock: 銘柄情報
-
-        Returns:
-            テーブル名（str）
-        """
-        return 'history_{}'.format(stock.symbol.lower())
-
-    @classmethod
-    def get_classname(cls, stock):
-        """銘柄情報に基づきクラス名を取得します。
-
-        Args:
-            stock: 銘柄情報
-
-        Returns:
-            クラス名（str）
-        """
-        return 'History{}'.format(stock.id)
-
-    @classmethod
-    def create_table(cls, stock):
-        """指定された銘柄の履歴テーブルを作成します。
-
-        Args:
-            銘柄を作成するテーブル
-        """
-        tablename = cls.get_tablename(stock)
-        if not engine.has_table(tablename):
-            # まだ存在しない場合はHistory_SYMBOLテーブルを作成します。
-            klass = cls.get_class(stock, skip_has_table=True)
-            Base.metadata.create_all(engine, tables=[klass.__table__])
-
-    @classmethod
-    def get_class(cls, stock, skip_has_table=False):
-        """HistoryBaseのサブクラスを取得します。クラスがまだ定義されていない場合は定義します。
-
-        Args:
-            stock: 銘柄情報
-            skip_has_table: Trueにするとテーブル作成をスキップします。
-
-        Returns:
-            HistoryBaseのサブクラス
-        """
-        tablename = cls.get_tablename(stock)
-        classname = cls.get_classname(stock)
-
-        if not skip_has_table and not engine.has_table(tablename):
-            # テーブルチェックありで、かつテーブルが無い場合はNoneを返します。
-            return None
-
-        if classname in DEFINED_TABLE_CLASSES:
-            klass = DEFINED_TABLE_CLASSES[classname]
-
-        else:
-            klass = type(classname, (HistoryBase, Base), {'__tablename__': tablename})
-            DEFINED_TABLE_CLASSES[classname] = klass
-
-        return klass
-
-    @classmethod
-    def save(cls, session, date, open_price, high_price,
+    def save(cls, session, symbol, date, open_price, high_price,
              low_price, raw_close_price, close_price, volume):
         """レコードを新規作成・更新します。
 
@@ -343,7 +261,8 @@ class HistoryBase(object):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(date=date)
+        q = session.query(cls).filter_by(symbol=symbol, date=date)
+
         if session.query(q.exists()).scalar():
             # レコードが既に存在する場合は取得して上書きします。
             create_flag = False
@@ -353,6 +272,7 @@ class HistoryBase(object):
             # レコードが存在しない場合は新規作成します。
             create_flag = True
             hist = cls()
+            hist.symbol = symbol
             hist.date = date
 
         hist.open_price = str_to_number(open_price)
@@ -375,17 +295,24 @@ class HistoryBase(object):
         return self.close_price / self.raw_close_price
 
 
+class History(HistoryBase, Base):
+    __tablename__ = 'history'
+
+
 class FinancialData(Base):
     """ファイナンシャル情報を保持するクラスです。"""
     __tablename__ = 'financial_data'
     __table_args__ = (
-        UniqueConstraint('stock_id', 'year'),  # ユニーク制約を追加します。
+        # UniqueConstraint('symbol', 'year', 'quarter'),
+        ForeignKeyConstraint(['symbol'], ['stock.symbol'],
+                             onupdate='CASCADE', ondelete='CASCADE'),
     )
 
-    id = Column(Integer, primary_key=True)
-    stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'),
-                      index=True, nullable=False)  # 銘柄ID
+    symbol = Column(String(Stock.SYMBOL_LENGTH), primary_key=True)
+    period = Column(String(6), primary_key=True)  # 期を表すコード 例: 16A, 16Q1
     year = Column(SmallInteger, nullable=False)  # 年度
+    quarter = Column(SmallInteger, nullable=True, default=None)  # Quarter
+    filing_date = Column(Date, nullable=False)  # Filing Date
     revenue = Column(Float, nullable=True)  # 売上
     net_income = Column(Float, nullable=True)  # 純利益
     cf_ope = Column(Float, nullable=True)  # キャッシュフロー（営業活動）
@@ -394,8 +321,16 @@ class FinancialData(Base):
     created_at = Column(DateTime, default=datetime.now())  # 作成日時
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())  # 更新日時
 
+    @staticmethod
+    def get_period(year, quarter):
+        """期を表す文字列を取得します。"""
+        if quarter is None:
+            return '{}A'.format(year)
+
+        return '{}Q{}'.format(year, quarter)
+
     @classmethod
-    def save(cls, session, stock, year, revenue, net_income,
+    def save(cls, session, stock, year, quarter, filing_date, revenue, net_income,
              cf_ope, cf_inv, cf_fin):
         """レコードを新規作成・更新します。
 
@@ -403,7 +338,8 @@ class FinancialData(Base):
             session: SQLAlchemyのセッションオブジェクト
             以下略
         """
-        q = session.query(cls).filter_by(stock_id=stock.id, year=year)
+        period = cls.get_period(year=year, quarter=quarter)
+        q = session.query(cls).filter_by(symbol=stock.symbol, period=period)
 
         if session.query(q.exists()).scalar():
             create_flag = False
@@ -412,25 +348,34 @@ class FinancialData(Base):
         else:
             create_flag = True
             f = cls()
-            f.stock_id = stock.id
+            f.symbol = stock.symbol
+            f.period = period
             f.year = year
+            f.quarter = quarter
 
-        f.revenue = revenue or None
-        f.net_income = net_income or None
-        f.cf_ope = cf_ope or None
-        f.cf_inv = cf_inv or None
-        f.cf_fin = cf_fin or None
+        f.filing_date = filing_date
 
-        # 型を変換します。
-        f.revenue = str_to_number(f.revenue)
-        f.net_income = str_to_number(f.net_income)
-        f.cf_ope = str_to_number(f.cf_ope)
-        f.cf_inv = str_to_number(f.cf_inv)
-        f.cf_fin = str_to_number(f.cf_fin)
+        if revenue:
+            f.revenue = str_to_number(revenue)
+
+        if net_income:
+            f.net_income = str_to_number(net_income)
+
+        if cf_ope:
+            f.cf_ope = str_to_number(cf_ope)
+
+        if cf_inv:
+            f.cf_inv = str_to_number(cf_inv)
+
+        if cf_fin:
+            f.cf_fin = str_to_number(cf_fin)
 
         if create_flag:
             session.add(f)  # 新規作成します。
 
 
-# FinancialDataテーブルを作成します。
+# テーブルを作成します。
+Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[FinancialData.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[History.__table__], checkfirst=True)

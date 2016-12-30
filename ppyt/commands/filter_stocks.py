@@ -21,40 +21,38 @@ class Command(CommandBase):
         filters = self._get_stock_filters(options.filterfile)
         logger.debug('filters: {}'.format(filters))
 
-        self.__filter_stock_ids(filters)  # フィルタで銘柄を絞り込みます。
+        self.__filter_stocks(filters)  # フィルタで銘柄を絞り込みます。
         self.__update_stocks()  # 銘柄を更新します。
         self.__show()  # 絞り込み結果を表示します。
 
-    def __filter_stock_ids(self, filters):
+    def __filter_stocks(self, filters):
         """銘柄IDを絞り込みます。
 
         Args:
             filters: 絞り込みに使うfilterオブジェクトのリスト
         """
         with start_session() as session:
-            # 最初は全てのstock_idをリストに入れておきます。
-            stock_ids = [s.id for s in session.query(Stock).order_by('id').all()]
+            # 最初は全ての銘柄をリストに入れておきます。
+            stocks = list(session.query(Stock).order_by('symbol').all())
 
         for f in filters:
-            # フィルタを使ってstock_id絞り込みます。
-            stock_ids = f.get_stock_ids(stock_ids)
+            # フィルタを使ってstock絞り込みます。
+            stocks = f.get_stocks(stocks)
             logger.info('フィルタ[{}]によって[{}]に絞りこまれました。'.format(
-                f.get_key(), ', '.join([str(i) for i in stock_ids])))
+                f.get_key(), ', '.join([str(s.symbol) for s in stocks])))
 
-        logger.debug('stock_ids: {}'.format(stock_ids))
-        self.stock_ids = stock_ids
+        self.stocks = stocks
 
     def __update_stocks(self):
         """銘柄情報のactivatedを更新します。"""
         # stockテーブルを更新します。
+        filtered_symbols = [s.symbol for s in self.stocks]
         with start_session(commit=True) as session:  # 全銘柄でループ
-            for s in session.query(Stock).order_by('id').all():
-                s.activated = s.id in self.stock_ids
+            for s in session.query(Stock).order_by('symbol').all():
+                s.activated = s.symbol in filtered_symbols
 
     def __show(self):
-        text = '# 絞り込み結果' + os.linesep
-        with start_session() as session:
-            for stock_id in self.stock_ids:
-                stock = session.query(Stock).get(stock_id)
-                text += '- [{}] {}'.format(stock.symbol, stock.name) + os.linesep
+        text = '# 絞り込み結果: {:,d} 銘柄'.format(len(self.stocks)) + os.linesep
+        for s in self.stocks:
+            text += '- [{}] {}'.format(s.symbol, s.name) + os.linesep
         plogger.info(text)

@@ -5,7 +5,7 @@ from datetime import datetime
 from ppyt import const
 from ppyt.commands import CommandBase
 from ppyt.exceptions import CommandError
-from ppyt.models.orm import start_session, Stock, HistoryBase, FinancialData
+from ppyt.models.orm import start_session, Stock, History, FinancialData
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +16,12 @@ class Command(CommandBase):
     # 処理モードを定義します。update_dataのあとに指定することで、その処理モードが実行されます。
     MODE_STOCK = 'stock'
     MODE_HISTORY = 'history'
+    MODE_FINANCIAL = 'financial'
     MODE_ALL = 'all'
     MODES = (
         MODE_HISTORY,  # 銘柄情報更新モード
         MODE_STOCK,  # 履歴データ更新用モード
+        MODE_FINANCIAL,  # Financial Data更新モード
         MODE_ALL,  # 全実行モード
     )
 
@@ -44,6 +46,11 @@ class Command(CommandBase):
             for market_id in const.MARKET_DATA.keys():
                 self.__import_stock_list_from_csv(market_id)
 
+        # symbolの一覧を取得します。
+        with start_session() as session:
+            self.symbols = [s.symbol for s in session.query(Stock).all()]
+
+        if mode in (self.MODE_STOCK, self.MODE_FINANCIAL, self.MODE_ALL):  # Financial Data更新
             self.__import_financial_data_from_csv()
 
         if mode in (self.MODE_HISTORY, self.MODE_ALL):  # ヒストリカルデータ更新
@@ -57,8 +64,7 @@ class Command(CommandBase):
                     msg += 'を実行して銘柄情報を取り込んでください。'
                     raise CommandError(msg)
 
-            for stock in stocks:
-                self.__import_histories_from_csv(stock)
+            self.__import_histories_from_csv()
 
     def __import_stock_list_from_csv(self, market_id):
         """銘柄情報をCSVファイルから取得してインポートします。
@@ -76,13 +82,14 @@ class Command(CommandBase):
                                'ファイルが存在ません。'.format(filepath))
 
         with start_session(commit=True) as session:
-            for row in self._iter_rows_from_csvfile(filepath):
-                symbol = row[0]
-                name = row[1]
-                sector_name = row[2]
+            for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                symbol = row['Symbol']
+                name = row['Name']
+                sector_name = row['Sector']
                 Stock.save(session=session, name=name, symbol=symbol,
                            sector_name=sector_name, market_id=market_id)
 
+        self._move_to_done_dir(filepath)  # importしたファイルを移動します。
         logger.info('マーケット[{}]の銘柄リストのインポートを終了しました。'.format(market_name))
 
     def __import_financial_data_from_csv(self):
@@ -98,23 +105,39 @@ class Command(CommandBase):
                 if os.path.splitext(filename)[1] != '.csv':
                     continue
                 filepath = os.path.join(dirpath, filename)
-                for row in self._iter_rows_from_csvfile(filepath):
+                for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
                     yield row
+
+                self._move_to_done_dir(filepath)  # importしたファイルを移動します。
 
         logger.info('ファイナンシャルデータのインポートを開始しました。')
         skipped_symbols = set()
         with start_session(commit=True) as session:
             for row in iter_rows():
                 logger.debug('row: {}'.format(row))
-                symbol, year, revenue, net_income, cf_ope, cf_inv, cf_fin = row
+                symbol = row['Symbol']
+
+                if symbol not in self.symbols:
+                    logger.info('銘柄[{}]は登録されていません。'.format(symbol))
+                    continue
+
+                year = row['Year']
+                quarter = row.get('Quarter')
+                filing_date = datetime.strptime(row['Filing Date'], '%Y-%m-%d').date()
+                revenue = row.get('Revenue')
+                net_income = row.get('Net Income')
+                cf_ope = row.get('Cash Flow From Operating Activities')
+                cf_inv = row.get('Cash Flow From Investing Activities')
+                cf_fin = row.get('Cash Flow From Financing Activities')
+
                 q = session.query(Stock).filter_by(symbol=symbol)
                 if not session.query(q.exists()).scalar():
                     skipped_symbols.add(symbol)
                     continue
 
                 stock = q.one()
-                FinancialData.save(session=session, stock=stock,
-                                   year=year, revenue=revenue, net_income=net_income,
+                FinancialData.save(session=session, stock=stock, year=year, quarter=quarter,
+                                   filing_date=filing_date, revenue=revenue, net_income=net_income,
                                    cf_ope=cf_ope, cf_inv=cf_inv, cf_fin=cf_fin)
 
         if skipped_symbols:  # 登録できなかった銘柄があった場合
@@ -124,41 +147,42 @@ class Command(CommandBase):
 
         logger.info('ファイナンシャルデータのインポートを終了しました。')
 
-    def __import_histories_from_csv(self, stock):
-        """履歴関連のデータをCSVファイルから取得してインポートします。
+    def __import_histories_from_csv(self):
+        """履歴関連のデータをCSVファイルから取得してインポートします。"""
+        def generate_row():
+            for filename in os.listdir(const.DATA_DIR_HISTORY):
+                logger.info('ファイル[{}]をインポートします。'.format(
+                    filename))
+                filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
+                for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                    yield row
 
-        Args:
-            stock: インポート対象の銘柄情報
-        """
-        logger.info('Symbol [{}] の履歴データインポートを開始しました。'.format(stock.symbol))
-        filepath = os.path.join(const.DATA_DIR_HISTORY, '{}.csv'.format(stock.symbol.lower()))
-        logger.debug('filepath: {}'.format(filepath))
+                self._move_to_done_dir(filepath)  # importしたファイルを移動します。
+                logger.info('ファイル[{}]のインポートが完了しました。'.format(
+                    filename))
 
-        if not os.path.isfile(filepath):
-            if stock.activated:  # 銘柄が使用中の場合は例外を投げます。
-                msg = 'ファイル: [{}]は存在しないので' \
-                    'データをインポートできませんでした。'.format(filepath)
-                raise CommandError(msg)
+        logger.info('履歴データインポートを開始しました。')
 
-            # 銘柄が使用中でない場合は、ファイルが無くても処理を続けます。
-            logger.info('[{}]は見つかりませんでした。'.format(filepath))
-            return
+        for row in generate_row():
+            with start_session(commit=True) as session:
+                symbol = row['Symbol']
+                date = datetime.strptime(row['Date'], '%Y-%m-%d').date()
 
-        HistoryBase.create_table(stock)  # テーブルがまだない場合は作成します。
-        History = HistoryBase.get_class(stock)
-        History = HistoryBase.get_class(stock)
+                if symbol not in self.symbols:
+                    logger.warn('銘柄[{}]は登録されていません。'.format(symbol))
+                    continue
 
-        with start_session(commit=True) as session:
-            for row in self._iter_rows_from_csvfile(filepath):
-                str_date, raw_open_price, raw_high_price, raw_low_price, \
-                    raw_close_price, volume, close_price = row
+                logger.info('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
+                    symbol, date))
 
-                date = datetime.strptime(str_date, '%Y-%m-%d').date()
-                History.save(session=session, date=date,
-                             raw_open_price=raw_open_price,
-                             raw_high_price=raw_high_price,
-                             raw_low_price=raw_low_price,
-                             raw_close_price=raw_close_price,
-                             close_price=close_price,
-                             volume=volume)
-        logger.info('Symbol [{}] の履歴データインポートを終了しました。'.format(stock.symbol))
+                History.save(session=session,
+                             symbol=symbol,
+                             date=date,
+                             raw_close_price=row['Close'],
+                             open_price=row['Adj. Open'],
+                             high_price=row['Adj. High'],
+                             low_price=row['Adj. Low'],
+                             close_price=row['Adj. Close'],
+                             volume=row['Adj. Volume'])
+
+        logger.info('履歴データインポートを終了しました。')

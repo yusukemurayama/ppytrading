@@ -7,11 +7,18 @@ logger = logging.getLogger(__name__)
 def str_to_number(value, totype=float):
     if value is None:
         return None
+
     if isinstance(value, (int, float)):
         return value
+
     elif isinstance(value, str):
         value = value.replace(',', '')
+
+        if totype == int:  # intの場合は一旦floatにキャスト
+            value = float(value)
+
         return totype(value)
+
     else:
         raise Exception('str_to_numberの引数に予期せぬ型[{}]が指定されました。'
                         .format(type(value)))
