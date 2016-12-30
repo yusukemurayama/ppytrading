@@ -57,21 +57,25 @@ class Command(CommandBase):
             if options.symbol is not None:
                 logger.info('銘柄 [{}] を対象とします。'.format(options.symbol))
                 q = q.filter(func.lower(Stock.symbol) == options.symbol.lower())
+
             else:
                 logger.info('全てのactivatedな銘柄を対象とします。')
 
-        if q.count() == 0:
-            msg = '処理対象の銘柄が見つからないので処理を終了します。' + os.linesep
-            msg += '先に、以下のコマンドで銘柄を絞り込んでください。' + os.linesep
-            msg += './{} {}'.format(self._manager, 'filter_stocks')
-            raise CommandError(msg)
+            num_stocks = q.count()  # 対象銘柄数
+            if num_stocks == 0:
+                msg = '処理対象の銘柄が見つからないので処理を終了します。' + os.linesep
+                msg += '先に、以下のコマンドで銘柄を絞り込んでください。' + os.linesep
+                msg += './{} {}'.format(self._manager, 'filter_stocks')
+                raise CommandError(msg)
 
-        logger.info('処理対象銘柄は{}件です。'.format(q.count()))
+            logger.info('処理対象銘柄は{:,d}件です。'.format(num_stocks))
 
-        for stock in q.all():  # 処理対象の銘柄でループ
-            stock.set_date(start_date, end_date)
-            manager.set_stock(stock)
-            manager.start()
+            for i, stock in enumerate(q.all()):  # 処理対象の銘柄でループ
+                plogger.info('{: 5,d} / {:,d} 件目を処理しています。'.format(
+                    i + 1, num_stocks))
+                stock.set_date(start_date, end_date)
+                manager.set_stock(stock)
+                manager.start()
 
         if options.output:  # 結果をファイルに出力するかを判定します。
             # 結果の出力先ディレクトリを決定、作成します。
