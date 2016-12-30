@@ -17,8 +17,7 @@ class CashFlowIncreasingFilter(FilterBase):
 
         Args:
             percentage: 毎年の増加率を指定します。
-            years: 過去何年間のデータを見るかを指定します。
-                ここで指定した年数分のデータが揃っていない銘柄は、無条件で除外されます。
+            years: 何年間連続で増加したら対象とするかを指定します。
 
         Raises:
             ArgumentError: 引数チェックに引っかかった場合に発生します。
@@ -52,23 +51,35 @@ class CashFlowIncreasingFilter(FilterBase):
                 増加していればTrue
             """
             if len(li) < self.years:
-                return False
+                return False  # 規定の年数に足りない場合はFalseにします。
 
             pre_cf_ope = None
-            for idx, cf_ope in enumerate(li):
-                if idx > 0 and pre_cf_ope * self.rate > cf_ope:
-                    return False  # 営業キャシュフローが増加していない場合はFalseを返します。
+            year_count = 0
+            for cf_ope in li:
+                if pre_cf_ope is not None \
+                        and cf_ope >= pre_cf_ope * self.rate:
+                    # 営業キャッシュフローが増加している場合はyearを増やします。
+                    year_count += 1
 
-                pre_cf_ope = cf_ope  # 次のループのために、営業キャッシュフローを更新しておきます。
+                    if year_count >= self.years:
+                        # 規定の年数増加し続けた場合はTrueにします。
+                        return True
 
-            return True
+                else:
+                    # 増加していない場合はカウントを戻します。
+                    year_count = 0
+
+                # 次のループのために、営業キャッシュフローを更新しておきます。
+                pre_cf_ope = cf_ope
+
+            return False
 
         data = defaultdict(list)
         symbol_map = {s.symbol: s for s in stocks}
 
         with start_session() as session:
-            for fin in session.query(FinancialData).order_by('symbol', 'year') \
-                    .filter_by(quarter=None):
+            for fin in session.query(FinancialData).filter_by(quarter=None) \
+                    .order_by('symbol', 'year'):
                 if fin.symbol not in symbol_map.keys():
                     continue  # 既に除外されている銘柄はチェックしません。
 
