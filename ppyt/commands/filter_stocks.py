@@ -2,7 +2,7 @@
 import logging
 import os
 from ppyt.commands import CommandBase
-from ppyt.models.orm import start_session, Stock
+from ppyt.models.orm import start_session, Stock, Setting
 
 logger = logging.getLogger(__name__)
 plogger = logging.getLogger('print')
@@ -13,12 +13,16 @@ class Command(CommandBase):
 
     def _add_options(self, parser):
         """コマンド実行時の引数を定義します。"""
-        parser.add_argument('filterfile', type=str, nargs='?', default='default')
+        parser.add_argument('filterfile', type=str, nargs='?', default=None)
 
     def _execute(self, options):
         """銘柄の絞込を実行します。"""
         # 絞り込むルールを取得します。
-        filters = self._get_stock_filters(options.filterfile)
+        filterfile = options.filterfile \
+            or Setting.get_value(Setting.KEY_DEFAULTFILTERFILE) or 'default'
+        logger.info('フィルタは[{}]を使用します。'.format(filterfile))
+
+        filters = self._get_stock_filters(filterfile)
         logger.debug('filters: {}'.format(filters))
 
         self.__filter_stocks(filters)  # フィルタで銘柄を絞り込みます。
