@@ -384,6 +384,17 @@ class Setting(Base):
     value = Column(String(200), nullable=False)
 
     @classmethod
+    def get_list(cls):
+        """key, valueの一覧を返します。"""
+        with start_session() as session:
+            return [row for row in session.query(cls).order_by('key')]
+
+    @classmethod
+    def get_keys(cls):
+        """keyの一覧を取得します。"""
+        return [row.key for row in cls.get_list()]
+
+    @classmethod
     def get_value(cls, key):
         """keyに対応する値を取得します。"""
         with start_session() as session:
