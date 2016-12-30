@@ -4,6 +4,8 @@ import os
 # ディレクトリ関連を定義します。
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PRJ_DIR = os.path.dirname(BASE_DIR)
+RULEFILE_DIR = os.path.join(PRJ_DIR, 'rules')  # ruleファイルの置き場所
+FILTERFILE_DIR = os.path.join(PRJ_DIR, 'filters')  # filterファイルの置き場所
 DATA_DIR = os.path.join(PRJ_DIR, 'data')
 DATA_DIR_STOCKLIST = os.path.join(DATA_DIR, 'stock_list')
 DATA_DIR_FINANCIAL = os.path.join(DATA_DIR, 'financial_data')

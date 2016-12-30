@@ -10,6 +10,7 @@ import numpy as np
 from ppyt import const
 from ppyt.exceptions import CommandError, NewInstanceError, ArgumentError
 from ppyt.finders import SimpleFinder
+from ppyt.models.orm import Setting
 
 logger = logging.getLogger(__name__)
 plogger = logging.getLogger('print')
@@ -118,7 +119,7 @@ class CommandBase(metaclass=abc.ABCMeta):
         Returns:
             ルールファイルのパス
         """
-        return os.path.join(const.PRJ_DIR, 'rules', rulefile + '.json')
+        return os.path.join(const.RULEFILE_DIR, rulefile + '.json')
 
     def _parse_rule(self, data, entry_rules=True):
         """ルール情報を解析して取得します。
@@ -202,6 +203,10 @@ class CommandBase(metaclass=abc.ABCMeta):
             raise NewInstanceError(rule_type=rule_type, findkey=findkey, err=err)
         return obj
 
+    def _get_default_rulefile(self):
+        """デフォルトのrulefileを取得します。"""
+        return Setting.get_value(Setting.KEY_DEFAULTRULEFILE) or 'default'
+
     def _get_rules(self, rulefile):
         """ルールファイルを解析し、生成したインスタンスを取得します。
 
@@ -237,6 +242,10 @@ class CommandBase(metaclass=abc.ABCMeta):
         return {'entry_groups': entry_groups,
                 'exit_groups': exit_groups}
 
+    def _get_default_filterfile(self):
+        """デフォルトのfilterfileを取得します。"""
+        return Setting.get_value(Setting.KEY_DEFAULTFILTERFILE) or 'default'
+
     def _get_stock_filters(self, filterfile):
         """filterfileを解析してfilter系クラスのインスタンスを取得します。
 
@@ -247,8 +256,7 @@ class CommandBase(metaclass=abc.ABCMeta):
             フィルタクラスのインスタンスのリスト
         """
         filters = []
-        filepath = os.path.join(const.PRJ_DIR, 'filters',
-                                filterfile + '.json')
+        filepath = os.path.join(const.FILTERFILE_DIR, filterfile + '.json')
         logger.debug('rule filepath: {}'.format(filepath))
 
         if not os.path.isfile(filepath):

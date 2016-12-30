@@ -13,12 +13,15 @@ class Command(CommandBase):
 
     def _add_options(self, parser):
         """コマンド実行時の引数を定義します。"""
-        parser.add_argument('filterfile', type=str, nargs='?', default='default')
+        parser.add_argument('filterfile', type=str, nargs='?', default=None)
 
     def _execute(self, options):
         """銘柄の絞込を実行します。"""
         # 絞り込むルールを取得します。
-        filters = self._get_stock_filters(options.filterfile)
+        filterfile = options.filterfile or self._get_default_filterfile()
+        logger.info('フィルタは[{}]を使用します。'.format(filterfile))
+
+        filters = self._get_stock_filters(filterfile)
         logger.debug('filters: {}'.format(filters))
 
         self.__filter_stocks(filters)  # フィルタで銘柄を絞り込みます。

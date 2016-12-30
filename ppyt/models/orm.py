@@ -374,8 +374,62 @@ class FinancialData(Base):
             session.add(f)  # 新規作成します。
 
 
+class Setting(Base):
+    """設定情報を保存するクラスです"""
+    __tablename__ = 'setting'
+    KEY_DEFAULTRULEFILE = 'default_rulefile'
+    KEY_DEFAULTFILTERFILE = 'default_filterfile'
+
+    key = Column(String(64), primary_key=True)
+    value = Column(String(200), nullable=False)
+
+    @classmethod
+    def get_list(cls):
+        """key, valueの一覧を返します。"""
+        with start_session() as session:
+            return [row for row in session.query(cls).order_by('key')]
+
+    @classmethod
+    def get_keys(cls):
+        """keyの一覧を取得します。"""
+        return [row.key for row in cls.get_list()]
+
+    @classmethod
+    def get_value(cls, key):
+        """keyに対応する値を取得します。"""
+        with start_session() as session:
+            row = session.query(cls).filter_by(key=key).one_or_none()
+            return row.value if row else None
+
+    @classmethod
+    def register_initials(cls):
+        """Keyが未登録の場合は初期値を設定します。"""
+        keys = [cls.KEY_DEFAULTRULEFILE,
+                cls.KEY_DEFAULTFILTERFILE]
+
+        for key in keys:
+            if cls.get_value(key)is None:
+                cls.save(key, 'default')  # Keyが未登録の場合は追加します。
+
+    @classmethod
+    def save(cls, key, value):
+        """設定を保存します。"""
+        with start_session(commit=True) as session:
+            row = session.query(cls).filter_by(key=key).one_or_none()
+
+            if not row:  # 新規作成の場合
+                row = cls()
+                row.key = key
+                row.value = value
+                session.add(row)
+
+            else:  # 更新の場合
+                row.value = value
+
+
 # テーブルを作成します。
 Base.metadata.create_all(engine, tables=[Sector.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[Stock.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[FinancialData.__table__], checkfirst=True)
 Base.metadata.create_all(engine, tables=[History.__table__], checkfirst=True)
+Base.metadata.create_all(engine, tables=[Setting.__table__], checkfirst=True)
