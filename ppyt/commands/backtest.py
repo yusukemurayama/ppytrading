@@ -19,7 +19,7 @@ class Command(CommandBase):
 
     def _add_options(self, parser):
         """コマンド実行時の引数を定義します。"""
-        parser.add_argument('rulefile', type=str, nargs='?', default='default')
+        parser.add_argument('rulefile', type=str, nargs='?', default=None)
         parser.add_argument('-s', '--symbol', type=str, required=False)
         parser.add_argument('-t', '--order-type', type=int, required=False)
         parser.add_argument('-S', '--start-year', type=int, required=False)
@@ -28,7 +28,9 @@ class Command(CommandBase):
 
     def _execute(self, options):
         """バックテストを実行します。"""
-        rules = self._get_rules(options.rulefile)
+        rulefile = options.rulefile or self._get_default_rulefile()
+        logger.info('ルールは[{}]を使用します。'.format(rulefile))
+        rules = self._get_rules(rulefile)
         logger.info('ルールファイル [{}] を処理します。'.format(options.rulefile))
 
         order_types = (options.order_type, ) if options.order_type in const.ORDER_TYPES else const.ORDER_TYPES

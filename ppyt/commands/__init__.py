@@ -203,6 +203,10 @@ class CommandBase(metaclass=abc.ABCMeta):
             raise NewInstanceError(rule_type=rule_type, findkey=findkey, err=err)
         return obj
 
+    def _get_default_rulefile(self):
+        """デフォルトのrulefileを取得します。"""
+        return Setting.get_value(Setting.KEY_DEFAULTRULEFILE) or 'default'
+
     def _get_rules(self, rulefile):
         """ルールファイルを解析し、生成したインスタンスを取得します。
 
