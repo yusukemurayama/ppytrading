@@ -17,6 +17,8 @@ class Command(CommandBase):
         parser.add_argument('-l', '--list', action='store_true')
 
     def _execute(self, options):
+        Setting.register_initials()  # 初期値を登録します。
+
         if options.list is True:
             plogger.info(os.linesep + '# Setting一覧' + os.linesep)
             for row in Setting.get_list():
