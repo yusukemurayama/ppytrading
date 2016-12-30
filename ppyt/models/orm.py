@@ -3,10 +3,11 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, Integer, String,
+    create_engine, event, Column, Integer, String,
     Float, Date, DateTime, SmallInteger, Boolean,
     ForeignKeyConstraint
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, reconstructor
 from ppyt import const
@@ -50,6 +51,15 @@ def start_session(commit=False):
     finally:
         if session is not None:
             session.close()
+
+
+@event.listens_for(Engine, 'connect')
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    import sqlite3
+    if type(dbapi_connection) == sqlite3.Connection:
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON')
+        cursor.close()
 
 
 class Sector(Base):
