@@ -377,6 +377,8 @@ class FinancialData(Base):
 class Setting(Base):
     """設定情報を保存するクラスです"""
     __tablename__ = 'setting'
+    KEY_DEFAULTFILTERFILE = 'default_filterfile'
+    KEY_DEFAULTRULEFILE = 'default_rulefile'
 
     key = Column(String(64), primary_key=True)
     value = Column(String(200), nullable=False)
