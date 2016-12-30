@@ -55,7 +55,9 @@ class Command(CommandBase):
                 s.activated = s.symbol in filtered_symbols
 
     def __show(self):
-        text = '# 絞り込み結果: {:,d} 銘柄'.format(len(self.stocks)) + os.linesep
+        plogger.info('')
+        plogger.info('# 絞り込み結果' + os.linesep)
         for s in self.stocks:
-            text += '- [{}] {}'.format(s.symbol, s.name) + os.linesep
-        plogger.info(text)
+            plogger.info('- [{}] {}'.format(s.symbol, s.name))
+        plogger.info(os.linesep + '計: {:,d}銘柄'.format(len(self.stocks)))
+        plogger.info('')
