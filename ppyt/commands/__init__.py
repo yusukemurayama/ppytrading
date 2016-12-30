@@ -119,7 +119,7 @@ class CommandBase(metaclass=abc.ABCMeta):
         Returns:
             ルールファイルのパス
         """
-        return os.path.join(const.PRJ_DIR, 'rules', rulefile + '.json')
+        return os.path.join(const.RULEFILE_DIR, rulefile + '.json')
 
     def _parse_rule(self, data, entry_rules=True):
         """ルール情報を解析して取得します。
@@ -256,8 +256,7 @@ class CommandBase(metaclass=abc.ABCMeta):
             フィルタクラスのインスタンスのリスト
         """
         filters = []
-        filepath = os.path.join(const.PRJ_DIR, 'filters',
-                                filterfile + '.json')
+        filepath = os.path.join(const.FILTERFILE_DIR, filterfile + '.json')
         logger.debug('rule filepath: {}'.format(filepath))
 
         if not os.path.isfile(filepath):
