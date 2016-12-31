@@ -7,7 +7,6 @@ from datetime import date, timedelta
 from itertools import chain
 from ppyt import const
 from ppyt.commands import CommandBase
-from ppyt.exceptions import CommandError
 
 logger = logging.getLogger(__name__)
 
