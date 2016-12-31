@@ -31,7 +31,7 @@ class Command(CommandBase):
             logger.debug('selected_value: %s' % selected_value)
 
             # Settingを更新します。
-            Setting.save(selected_key, selected_value)
+            Setting.update_value(selected_key, selected_value)
             plogger.info('Key [%s] の値を [%s]に更新しました。' % (selected_key, selected_value))
 
     def __select_key(self):

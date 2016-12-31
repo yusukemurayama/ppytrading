@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, reconstructor
 from ppyt import const
+from ppyt.exceptions import CommandError
 from ppyt.decorators import cached_property
 from ppyt.utils import str_to_number
 
@@ -391,13 +392,14 @@ class Setting(Base):
     KEY_FILTERFILE = 'filterfile'
 
     key = Column(String(64), primary_key=True)
-    value = Column(String(200), nullable=False)
+    value = Column(String(200), nullable=True, default=None)
+    order_id = Column(Integer, nullable=False)
 
     @classmethod
     def get_list(cls):
         """key, valueの一覧を返します。"""
         with start_session() as session:
-            return [row for row in session.query(cls).order_by('key')]
+            return [row for row in session.query(cls).order_by('order_id')]
 
     @classmethod
     def get_keys(cls):
@@ -414,24 +416,39 @@ class Setting(Base):
     @classmethod
     def register_initials(cls):
         """Keyが未登録の場合は初期値を設定します。"""
-        keys = [cls.KEY_RULEFILE,
-                cls.KEY_FILTERFILE]
+        keys = [
+            (cls.KEY_FILTERFILE, 1),
+            (cls.KEY_RULEFILE, 2),
+        ]
 
-        for key in keys:
-            if cls.get_value(key)is None:
-                cls.save(key, 'default')  # Keyが未登録の場合は追加します。
+        with start_session(commit=True) as session:
+            for (key, order_id) in keys:
+                row = session.query(cls).filter_by(key=key).one_or_none()
+
+                if row:
+                    # 既に存在する場合はorder_idのみ上書きします。
+                    row.order_id = order_id
+
+                else:
+                    # レコードがない場合は新規作成します。
+                    s = cls()
+                    s.key = key
+                    s.value = None
+                    s.order_id = order_id
+                    session.add(s)
 
     @classmethod
-    def save(cls, key, value):
-        """設定を保存します。"""
+    def update_value(cls, key, value):
+        """Valueを更新します。"""
         with start_session(commit=True) as session:
             row = session.query(cls).filter_by(key=key).one_or_none()
 
-            if not row:  # 新規作成の場合
-                row = cls()
-                row.key = key
-                row.value = value
-                session.add(row)
+            if not row:
+                # レコードが存在しない場合は例外を投げます。
+                msg = '更新対象のレコードが見つかりませんでした。' \
+                    + '{}.register_initialsが実行されていない、' \
+                    + 'または同メソッドでレコードが作成されていない可能性があります。'
+                raise CommandError(msg.format(cls.__name__))
 
             else:  # 更新の場合
                 row.value = value
