@@ -1,0 +1,13 @@
+{
+  "filters": [
+    {
+      "findkey": "営業キャッシュフローフィルタ",
+      "percentage": 5,
+      "years": 3
+    },
+    {
+      "findkey": "平均出来高フィルタ",
+      "volume": 1000
+    }
+  ]
+}
