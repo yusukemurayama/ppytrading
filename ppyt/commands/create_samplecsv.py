@@ -4,6 +4,7 @@ import csv
 import os
 import random
 from datetime import date, timedelta
+from collections import defaultdict
 from itertools import chain
 from ppyt import const
 from ppyt.commands import CommandBase
@@ -92,23 +93,61 @@ class Command(CommandBase):
             def growing_rate():
                 return random.randint(900, 1600) / 1000
 
+            def get_filing_date(year, quarter):
+                if quarter == 1:
+                    return '%s-%s-30' % (year, '04')
+                elif quarter == 2:
+                    return '%s-%s-30' % (year, '07')
+                elif quarter == 3:
+                    return '%s-%s-30' % (year, '10')
+                elif quarter == 4:
+                    return '%s-%s-30' % (year + 1, '01')
+                elif quarter is None:
+                    return '%s-%s-30' % (year + 1, '04')
+
             li = []
             start_year = current_year - self.num_years
-            cf_ope = int(10**random.randint(6, 10) * random.random()) * random_minus()
-            for idx in range(self.num_years):
-                cf_ope = int(cf_ope * growing_rate() * random_minus())
-                net_income = int(cf_ope * random.randint(5, 15) / 10 * random_minus())
-                revenue = abs(int(net_income * random.randint(5, 20) / 10))
-                cf_inv, cf_fin = None, None  # dummyデータではNoneにしておきます。
-                li.append((symbol, start_year+idx, revenue, net_income, cf_ope, cf_inv, cf_fin))
+            cf_ope = int(10**random.randint(5, 9) * random.random()) * random_minus()
+
+            for i in range(self.num_years):
+                year = start_year + i
+                annual_values = defaultdict(int)
+
+                for quarter in [1, 2, 3, 4]:
+                    # 四半期のデータを追加します。
+                    cf_ope = int(cf_ope * growing_rate() * random_minus())
+                    net_income = int(cf_ope * random.randint(5, 15) / 10 * random_minus())
+                    revenue = abs(int(net_income * random.randint(5, 20) / 10))
+                    li.append([symbol,
+                               year,
+                               quarter,
+                               get_filing_date(year, quarter),
+                               revenue,
+                               net_income,
+                               cf_ope])
+
+                    # 合計に追加します。
+                    for key in ['revenue', 'net_income', 'cf_ope']:
+                        annual_values[key] += locals()[key]
+
+                # Annualのデータを追加します。
+                li.append([symbol,
+                           year,
+                           '',
+                           get_filing_date(year, None),
+                           annual_values['revenue'],
+                           annual_values['net_income'],
+                           annual_values['cf_ope']])
+
             return li
 
         current_year = date.today().year
-        header = ('Symbol', 'Year', 'Revenue', 'Net Income', 'Cash Flow From Operating Activities',
-                  'Cash Flow From Investing Activities', 'Cash Flow From Financing Activities')
+        header = ('Symbol', 'Year', 'Quarter', 'Filing Date', 'Revenue',
+                  'Net Income', 'Cash Flow From Operating Activities')
+
         rows = chain(*[get_rows(symbol, current_year) for symbol in symbols])
 
-        with open(os.path.join(self.dest_dir_financial, 'test.csv'), 'w',
+        with open(os.path.join(self.dest_dir_financial, 'sample.csv'), 'w',
                   encoding=const.DEFAULT_FILE_ENCODING, newline='') as fp:
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(header)
