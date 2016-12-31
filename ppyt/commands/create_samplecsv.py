@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 class Command(CommandBase):
     """update_dataコマンドで取り込めるダミーデータを生成するコマンドです。"""
-
     DEFAULT_NUM_STOCKS = 50  # 作成する銘柄数のデフォルト値を定義します。
     DEFAULT_NUM_YEARS = 5  # 何年分のデータを作成するかのデフォルト値を定義します。
 
@@ -24,38 +23,33 @@ class Command(CommandBase):
                             type=int, default=self.DEFAULT_NUM_STOCKS)
         parser.add_argument('-y', dest='num_years', metavar='num_years',
                             type=int, default=self.DEFAULT_NUM_YEARS)
-        parser.add_argument('-f', dest='force_flag', action='store_true')
 
     def _execute(self, options):
         """テスト用データを生成します。"""
+        # 出力場所を準備します。
+        self.__prepare_dest_dirs()
+
         self.num_stocks = options.num_stocks
         self.num_years = options.num_years
         self._prepare_data_directories()
-        self.__check_and_delete_files(options.force_flag)
         symbols = self.__create_stocklist()
         self.__create_financials(symbols)
         self.__create_historicals(symbols)
 
-    def __check_and_delete_files(self, delete_flag=False):
-        """データ保存先の存在をチェックします。"
+    def __prepare_dest_dirs(self):
+        """サンプルCSVの出力先を準備します。"""
+        dest_dir = os.path.join(const.PRJ_DIR, 'samples')
+        self.dest_dir_stocklist = os.path.join(
+            dest_dir, os.path.basename(const.DATA_DIR_STOCKLIST))
+        self.dest_dir_financial = os.path.join(
+            dest_dir, os.path.basename(const.DATA_DIR_FINANCIAL))
+        self.dest_dir_history = os.path.join(
+            dest_dir, os.path.basename(const.DATA_DIR_HISTORY))
 
-        Args:
-            delete_flag: Trueにしているとデータ保存先にあるファイルを削除します。
-
-        Raises:
-            CommandError: 既にファイルが存在する場合
-        """
-        for dirpath in const.DATA_SUB_DIRS:
-            for fn in os.listdir(dirpath):
-                if fn.startswith('.'):
-                    continue
-                if not delete_flag:
-                    raise CommandError('ディレクトリ[{}]の中に既にファイル[{}]が'
-                                       '存在しています。'.format(dirpath, fn))
-                else:
-                    filepath = os.path.join(dirpath, fn)
-                    os.unlink(os.path.join(dirpath, fn))
-                    logger.debug('filepath: [{}]を削除しました。'.format(filepath))
+        # ディレクトリがない場合は作成します。
+        os.makedirs(self.dest_dir_stocklist, exist_ok=True)
+        os.makedirs(self.dest_dir_financial, exist_ok=True)
+        os.makedirs(self.dest_dir_history, exist_ok=True)
 
     def __create_stocklist(self):
         """テスト用銘柄をCSVファイルに書き出します。
@@ -77,7 +71,7 @@ class Command(CommandBase):
         ] for idx1 in range(len(const.MARKET_DATA.keys()))]
 
         for idx, (market_id, market_name) in enumerate(const.MARKET_DATA.items()):
-            with open(os.path.join(const.DATA_DIR_STOCKLIST, market_name + '.csv'), 'w',
+            with open(os.path.join(self.dest_dir_stocklist, market_name + '.csv'), 'w',
                       encoding=const.DEFAULT_FILE_ENCODING, newline='') as fp:
                 writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
                 writer.writerow(header)
@@ -115,7 +109,7 @@ class Command(CommandBase):
                   'Cash Flow From Investing Activities', 'Cash Flow From Financing Activities')
         rows = chain(*[get_rows(symbol, current_year) for symbol in symbols])
 
-        with open(os.path.join(const.DATA_DIR_FINANCIAL, 'test.csv'), 'w',
+        with open(os.path.join(self.dest_dir_financial, 'test.csv'), 'w',
                   encoding=const.DEFAULT_FILE_ENCODING, newline='') as fp:
             writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
             writer.writerow(header)
@@ -127,7 +121,7 @@ class Command(CommandBase):
         Args:
             symbols: 出力対象の銘柄情報のリスト
         """
-        def get_row(data, adjustment):
+        def get_row(symbol, data, adjustment):
             """CSVファイル1行分のデータを取得します。"""
             p = 1.5  # 終値から最大で何ドル離れる可能性があるかを定義します。
 
@@ -156,7 +150,8 @@ class Command(CommandBase):
                 # 終値が安値ねを下回っている場合は安値を終値に合わせます。
                 adj_low_price = adj_close_price
 
-            return (data['date'],
+            return (symbol,
+                    data['date'],
                     round(open_price, 2),
                     round(high_price, 2),
                     round(low_price, 2),
@@ -168,7 +163,7 @@ class Command(CommandBase):
                     round(adj_close_price, 2),
                     adj_volume)
 
-        header = ('Date', 'Open', 'High', 'Low', 'Close', 'Volume',
+        header = ('Symbol', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume',
                   'Adj. Open', 'Adj. High', 'Adj. Low', 'Adj. Close', 'Adj. Volume')
         end_date = date.today() - timedelta(days=1)
         start_date = date(end_date.year-self.num_years+1, 1, 1)
@@ -193,11 +188,11 @@ class Command(CommandBase):
                     logger.debug('adjustment: {}: {}'.format(symbol, adjustment))
                     adjustment *= 2
 
-            with open(os.path.join(const.DATA_DIR_HISTORY, symbol.lower() + '.csv'), 'w',
+            with open(os.path.join(self.dest_dir_history, symbol.lower() + '.csv'), 'w',
                       encoding=const.DEFAULT_FILE_ENCODING, newline='') as fp:
                 writer = csv.writer(fp, quoting=csv.QUOTE_ALL)
                 writer.writerow(header)
-                writer.writerows([get_row(d, adjustment) for d in rows])
+                writer.writerows([get_row(symbol, d, adjustment) for d in rows])
 
     def __get_close_price(self, first_price, limit_param=4):
         """終値をランダム生成して取得します。
