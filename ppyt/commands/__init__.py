@@ -365,7 +365,7 @@ class CommandBase(metaclass=abc.ABCMeta):
         import csv
         if not re.search(r'\.csv$', filepath, re.I):
             raise Exception('ファイル[{}]の拡張子が.csvではありません。'
-                            .format(os.path.baname(filepath)))
+                            .format(os.path.basename(filepath)))
         encoding = encoding or const.DEFAULT_FILE_ENCODING
         with open(filepath, encoding=encoding) as fp:
             text = fp.read()
