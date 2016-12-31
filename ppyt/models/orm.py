@@ -387,8 +387,8 @@ class FinancialData(Base):
 class Setting(Base):
     """設定情報を保存するクラスです"""
     __tablename__ = 'setting'
-    KEY_DEFAULTRULEFILE = 'default_rulefile'
-    KEY_DEFAULTFILTERFILE = 'default_filterfile'
+    KEY_RULEFILE = 'rulefile'
+    KEY_FILTERFILE = 'filterfile'
 
     key = Column(String(64), primary_key=True)
     value = Column(String(200), nullable=False)
@@ -414,8 +414,8 @@ class Setting(Base):
     @classmethod
     def register_initials(cls):
         """Keyが未登録の場合は初期値を設定します。"""
-        keys = [cls.KEY_DEFAULTRULEFILE,
-                cls.KEY_DEFAULTFILTERFILE]
+        keys = [cls.KEY_RULEFILE,
+                cls.KEY_FILTERFILE]
 
         for key in keys:
             if cls.get_value(key)is None:
