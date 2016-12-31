@@ -31,7 +31,7 @@ class Command(CommandBase):
             logger.debug('selected_value: %s' % selected_value)
 
             # Settingを更新します。
-            Setting.save(selected_key, selected_value)
+            Setting.update_value(selected_key, selected_value)
             plogger.info('Key [%s] の値を [%s]に更新しました。' % (selected_key, selected_value))
 
     def __select_key(self):
@@ -45,11 +45,11 @@ class Command(CommandBase):
         current_value = Setting.get_value(key)
         plogger.info('以下の中から更新内容を数字で選択してください。' + os.linesep)
 
-        if key == Setting.KEY_DEFAULTRULEFILE:
+        if key == Setting.KEY_RULEFILE:
             values = sorted([os.path.splitext(fn)[0] for fn in os.listdir(const.RULEFILE_DIR)
                              if os.path.splitext(fn)[1].lower() == '.json'])
 
-        elif key == Setting.KEY_DEFAULTFILTERFILE:  # フィルタファイル
+        elif key == Setting.KEY_FILTERFILE:  # フィルタファイル
             values = sorted([os.path.splitext(fn)[0] for fn in os.listdir(const.FILTERFILE_DIR)
                              if os.path.splitext(fn)[1].lower() == '.json'])
 

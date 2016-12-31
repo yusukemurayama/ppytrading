@@ -205,7 +205,7 @@ class CommandBase(metaclass=abc.ABCMeta):
 
     def _get_default_rulefile(self):
         """デフォルトのrulefileを取得します。"""
-        return Setting.get_value(Setting.KEY_DEFAULTRULEFILE) or 'default'
+        return Setting.get_value(Setting.KEY_RULEFILE) or 'default'
 
     def _get_rules(self, rulefile):
         """ルールファイルを解析し、生成したインスタンスを取得します。
@@ -244,7 +244,7 @@ class CommandBase(metaclass=abc.ABCMeta):
 
     def _get_default_filterfile(self):
         """デフォルトのfilterfileを取得します。"""
-        return Setting.get_value(Setting.KEY_DEFAULTFILTERFILE) or 'default'
+        return Setting.get_value(Setting.KEY_FILTERFILE) or 'default'
 
     def _get_stock_filters(self, filterfile):
         """filterfileを解析してfilter系クラスのインスタンスを取得します。
