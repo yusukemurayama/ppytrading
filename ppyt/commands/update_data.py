@@ -151,8 +151,12 @@ class Command(CommandBase):
         """履歴関連のデータをCSVファイルから取得してインポートします。"""
         def generate_row():
             for filename in os.listdir(const.DATA_DIR_HISTORY):
+                if os.path.splitext(filename)[1] != '.csv':
+                    continue  # CSVファイル以外は無視します。
+
                 logger.info('ファイル[{}]をインポートします。'.format(
                     filename))
+
                 filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
                 for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
                     yield row
