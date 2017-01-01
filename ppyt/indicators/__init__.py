@@ -62,7 +62,7 @@ class IndicatorBase(FinderMixin, metaclass=abc.ABCMeta):
                                  span=self.__span, **self.__kwds)
         if data is None:
             # indicatorを組み立てます。
-            data = self._build_indicator(**self.__kwds)
+            data = self._build_indicator(span=self.__span, **self.__kwds)
             instance.add_data(data=data, klass=self.__class__, stock=self.stock,
                               span=self.__span, **self.__kwds)
         self.__data = data
@@ -231,7 +231,7 @@ class IndicatorTemplate(IndicatorBase):
 
     _findkey = 'テンプレート'  # indicatorを一意に特定できる名前をつけます。
 
-    def _build_indicator(self):
+    def _build_indicator(self, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:

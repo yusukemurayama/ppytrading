@@ -9,7 +9,7 @@ class CrossOverIndicator(IndicatorBase):
 
     _findkey = '移動平均線のクロス'  # indicatorを一意に特定できる名前をつけます。
 
-    def _build_indicator(self, span_short, span_long, reverse=False):
+    def _build_indicator(self, span_short, span_long, reverse=False, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:
