@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Command(CommandBase):
     """update_dataコマンドで取り込めるダミーデータを生成するコマンドです。"""
-    DEFAULT_NUM_STOCKS = 10  # 作成する銘柄数のデフォルト値を定義します。
+    DEFAULT_NUM_STOCKS = 50  # 作成する銘柄数のデフォルト値を定義します。
     DEFAULT_NUM_YEARS = 5  # 何年分のデータを作成するかのデフォルト値を定義します。
 
     def _add_options(self, parser):
