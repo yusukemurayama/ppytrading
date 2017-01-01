@@ -54,6 +54,36 @@ def start_session(commit=False):
             session.close()
 
 
+@contextmanager
+def start_raw_connection(commit=False):
+    """コネクションを開始します。生のSQLを実行したい場合はこちらを使用します。
+
+    Args:
+        commit: Trueにするとセッション終了時にcommitします。
+
+    Yields:
+        Raw DBAPI Connection
+
+    Usage:
+        with start_raw_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT 1')
+    """
+    conn = None
+    try:
+        conn = engine.raw_connection()
+        try:
+            yield conn
+            if commit:
+                conn.commit()
+        except:
+            conn.rollback()
+            raise
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 @event.listens_for(Engine, 'connect')
 def set_sqlite_pragma(dbapi_connection, connection_record):
     import sqlite3
