@@ -455,9 +455,4 @@ class Setting(Base):
 
 
 # テーブルを作成します。
-Base.metadata.create_all(engine,
-                         tables=[Sector.__table__,
-                                 Stock.__table__,
-                                 FinancialData.__table__,
-                                 Setting.__table__],
-                         checkfirst=True)
+Base.metadata.create_all(engine, checkfirst=True)
