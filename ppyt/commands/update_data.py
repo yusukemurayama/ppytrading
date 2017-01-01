@@ -157,9 +157,10 @@ class Command(CommandBase):
                 logger.info('ファイル[{}]をインポートします。'.format(
                     filename))
 
-                filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
-                for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
-                    yield row
+                with start_session(commit=True) as session:
+                    filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
+                    for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
+                        yield session, row
 
                 self._move_to_done_dir(filepath)  # importしたファイルを移動します。
                 logger.info('ファイル[{}]のインポートが完了しました。'.format(
@@ -167,26 +168,26 @@ class Command(CommandBase):
 
         logger.info('履歴データインポートを開始しました。')
 
-        for row in generate_row():
-            with start_session(commit=True) as session:
-                symbol = row['Symbol']
-                date = datetime.strptime(row['Date'], '%Y-%m-%d').date()
+        for session, row in generate_row():
+            # with start_session(commit=True) as session:
+            symbol = row['Symbol']
+            date = datetime.strptime(row['Date'], '%Y-%m-%d').date()
 
-                if symbol not in self.symbols:
-                    logger.warn('銘柄[{}]は登録されていません。'.format(symbol))
-                    continue
+            if symbol not in self.symbols:
+                logger.warn('銘柄[{}]は登録されていません。'.format(symbol))
+                continue
 
-                logger.info('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
-                    symbol, date))
+            logger.info('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
+                symbol, date))
 
-                History.save(session=session,
-                             symbol=symbol,
-                             date=date,
-                             raw_close_price=row['Close'],
-                             open_price=row['Adj. Open'],
-                             high_price=row['Adj. High'],
-                             low_price=row['Adj. Low'],
-                             close_price=row['Adj. Close'],
-                             volume=row['Adj. Volume'])
+            History.save(session=session,
+                         symbol=symbol,
+                         date=date,
+                         raw_close_price=row['Close'],
+                         open_price=row['Adj. Open'],
+                         high_price=row['Adj. High'],
+                         low_price=row['Adj. Low'],
+                         close_price=row['Adj. Close'],
+                         volume=row['Adj. Volume'])
 
         logger.info('履歴データインポートを終了しました。')
