@@ -5,7 +5,7 @@ from datetime import datetime
 from ppyt import const
 from ppyt.commands import CommandBase
 from ppyt.exceptions import CommandError
-from ppyt.models.orm import start_session, Stock, History, FinancialData
+from ppyt.models.orm import start_session, start_raw_connection, Stock, FinancialData
 
 logger = logging.getLogger(__name__)
 
@@ -157,10 +157,10 @@ class Command(CommandBase):
                 logger.info('ファイル[{}]をインポートします。'.format(
                     filename))
 
-                with start_session(commit=True) as session:
+                with start_raw_connection(commit=True) as conn:
                     filepath = os.path.join(const.DATA_DIR_HISTORY, filename)
                     for row in self._iter_rows_from_csvfile(filepath, as_dict=True):
-                        yield session, row
+                        yield conn, row
 
                 self._move_to_done_dir(filepath)  # importしたファイルを移動します。
                 logger.info('ファイル[{}]のインポートが完了しました。'.format(
@@ -168,8 +168,7 @@ class Command(CommandBase):
 
         logger.info('履歴データインポートを開始しました。')
 
-        for session, row in generate_row():
-            # with start_session(commit=True) as session:
+        for conn, row in generate_row():
             symbol = row['Symbol']
             date = datetime.strptime(row['Date'], '%Y-%m-%d').date()
 
@@ -177,17 +176,27 @@ class Command(CommandBase):
                 logger.warn('銘柄[{}]は登録されていません。'.format(symbol))
                 continue
 
-            logger.info('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
+            logger.debug('[Symbol: {}, Date: {:%Y-%m-%d}]を登録します。'.format(
                 symbol, date))
 
-            History.save(session=session,
-                         symbol=symbol,
-                         date=date,
-                         raw_close_price=row['Close'],
-                         open_price=row['Adj. Open'],
-                         high_price=row['Adj. High'],
-                         low_price=row['Adj. Low'],
-                         close_price=row['Adj. Close'],
-                         volume=row['Adj. Volume'])
+            delete_sql = 'DELETE FROM history WHERE symbol = ? AND date = ?'
+            insert_sql = '''INSERT INTO history (
+    symbol, date, raw_close_price, open_price, high_price,
+    low_price, close_price, volume
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?
+)'''
+
+            # Delete → Insertを実行します。
+            cursor = conn.cursor()
+            cursor.execute(delete_sql, (symbol, date))
+            cursor.execute(insert_sql, (symbol,
+                                        date,
+                                        row['Close'],
+                                        row['Adj. Open'],
+                                        row['Adj. High'],
+                                        row['Adj. Low'],
+                                        row['Adj. Close'],
+                                        row['Adj. Volume']))
 
         logger.info('履歴データインポートを終了しました。')
