@@ -29,7 +29,7 @@ class MADirectionIndicator(IndicatorBase):
                 return const.INDI_DIRECTION_HR  # 水平
 
         ma = MovingAverageIndicator(stock=self.stock, span=span)
-        arr1 = ma.shifted(-1)  # 一つ前
-        arr2 = ma.data  # 最新
+        arr1 = ma.shifted(-1)  # 一日前の移動平均の配列
+        arr2 = ma.data  # 移動平均の配列
         return np.array([get_direction(a, b) for a, b
                          in zip(arr1, arr2)], dtype=np.float16)
