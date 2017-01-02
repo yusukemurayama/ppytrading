@@ -9,7 +9,7 @@ class PriceIndicator(IndicatorBase):
 
     _findkey = '価格'  # indicatorを一意に特定できる名前をつけます。
 
-    def _build_indicator(self, price_type=const.PRICE_TYPE_CLOSE):
+    def _build_indicator(self, price_type=const.PRICE_TYPE_CLOSE, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:
@@ -26,7 +26,7 @@ class MovingAverageIndicator(IndicatorBase):
 
     _findkey = '移動平均線'  # indicatorを一意に特定できる名前をつけます。
 
-    def _build_indicator(self, price_type=const.PRICE_TYPE_CLOSE):
+    def _build_indicator(self, price_type=const.PRICE_TYPE_CLOSE, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:
@@ -43,7 +43,7 @@ class RecentHighPriceIndicator(IndicatorBase):
 
     _findkey = '直近高値'  # indicatorを一意に特定できる名前をつけます。
 
-    def _build_indicator(self, price_type=const.PRICE_TYPE_HIGH):
+    def _build_indicator(self, price_type=const.PRICE_TYPE_HIGH, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:
@@ -58,7 +58,7 @@ class RecentHighPriceIndicator(IndicatorBase):
 class RecentLowPriceIndicator(IndicatorBase):
     _findkey = '直近安値'
 
-    def _build_indicator(self, price_type=const.PRICE_TYPE_LOW):
+    def _build_indicator(self, price_type=const.PRICE_TYPE_LOW, **kwds):
         """indicatorのデータを組み立てます。
 
         Args:
