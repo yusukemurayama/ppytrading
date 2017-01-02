@@ -25,6 +25,8 @@ class Command(CommandBase):
         parser.add_argument('-S', '--start-year', type=int, required=False)
         parser.add_argument('-E', '--end-year', type=int, required=False)
         parser.add_argument('-o', '--output', action='store_true')
+        parser.add_argument('-n', '--num', dest='num_stocks', type=int,
+                            required=False)  # バックテストの件数を指定できます。
 
     def _execute(self, options):
         """バックテストを実行します。"""
@@ -54,12 +56,14 @@ class Command(CommandBase):
             # activatedがTrueの銘柄が対象になるようにします。
             q = session.query(Stock).filter_by(activated=True)
 
+            if options.num_stocks:
+                # -n, --numの指定がある場合は並び順をランダムにし、
+                # 取得件数を絞ります。
+                q = q.order_by('RANDOM()').limit(options.num_stocks)
+
             if options.symbol is not None:
                 logger.info('銘柄 [{}] を対象とします。'.format(options.symbol))
                 q = q.filter(func.lower(Stock.symbol) == options.symbol.lower())
-
-            else:
-                logger.info('全てのactivatedな銘柄を対象とします。')
 
             num_stocks = q.count()  # 対象銘柄数
             if num_stocks == 0:
@@ -71,8 +75,8 @@ class Command(CommandBase):
             logger.info('処理対象銘柄は{:,d}件です。'.format(num_stocks))
 
             for i, stock in enumerate(q.all()):  # 処理対象の銘柄でループ
-                plogger.info('{: 5,d} / {:,d} 件目を処理しています。'.format(
-                    i + 1, num_stocks))
+                plogger.info('{: 5,d} / {:,d} 件目を処理しています。({})'.format(
+                    i + 1, num_stocks, stock.symbol))
                 stock.set_date(start_date, end_date)
                 manager.set_stock(stock)
                 manager.start()
