@@ -102,6 +102,6 @@ RULEFILE_ORDER_TIMING_MAP = {
 # ルールファイル関連の値を定義します。: END
 
 # 指標の方向関連
-INDI_DIRECTION_UP = 1  # 上昇
+INDI_DIRECTION_UP = 1     # 上昇
 INDI_DIRECTION_DOWN = -1  # 下降
-INDI_DIRECTION_HR = 0  # 水平
+INDI_DIRECTION_HR = 0     # 水平
