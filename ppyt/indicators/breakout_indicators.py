@@ -1,9 +1,9 @@
 # coding: utf-8
 import logging
-from ppyt import const
+import numpy as np
 from ppyt.indicators import IndicatorBase
-from ppyt.indicators.basic_indicators import (
-    PriceIndicator, RecentHighPriceIndicator, RecentLowPriceIndicator
+from ppyt.indicators.closerecenthighlow_indicators import (
+    CloseGtRecentHighIndicator, CloseLtRecentLowIndicator
 )
 
 logger = logging.getLogger(__name__)
@@ -19,16 +19,15 @@ class UpperBreakoutIndicator(IndicatorBase):
         Args:
             span: 過去何日間の高値を上に抜いたか
         """
-        recent_indicator = RecentHighPriceIndicator(stock=self.stock,
-                                                    span=span)
-        price_indicator = PriceIndicator(stock=self.stock,
-                                         price_type=const.PRICE_TYPE_CLOSE)
+        # 当日の高値が、前日までの直近高値を超えたかの指標を取得します。
+        indi = CloseGtRecentHighIndicator(stock=self.stock, span=span)
+        arr1 = indi.data
 
-        arr1 = recent_indicator.shifted(-1)  # 昨日
-        arr2 = price_indicator.data  # 当日
+        # 1日過去にずらした配列を取得します。
+        arr2 = indi.shifted(-1)
 
-        # 昨日の終値が一昨日のX日間高値を上回っているかを判定します。
-        return arr1 < arr2
+        # 前日は直近高値以下で、当日に直近高値を超えているかを判定します。
+        return np.logical_and(arr1, np.logical_not(arr2))
 
 
 class LowerBreakoutIndicator(IndicatorBase):
@@ -41,13 +40,12 @@ class LowerBreakoutIndicator(IndicatorBase):
         Args:
             span: 過去何日間の高値を上に抜いたか
         """
-        recent_indicator = RecentLowPriceIndicator(stock=self.stock,
-                                                   span=span)
-        price_indicator = PriceIndicator(stock=self.stock,
-                                         price_type=const.PRICE_TYPE_CLOSE)
+        # 当日の安値が、前日までの直近安値を下回った指標を取得します。
+        indi = CloseLtRecentLowIndicator(stock=self.stock, span=span)
+        arr1 = indi.data
 
-        arr1 = recent_indicator.shifted(-1)  # 昨日
-        arr2 = price_indicator.data  # 当日
+        # 1日過去にずらした配列を取得します。
+        arr2 = indi.shifted(-1)
 
-        # 昨日の終値が一昨日のX日間安値を下回っているかを判定します。
-        return arr1 > arr2
+        # 前日は直近安値以上で、当日に直近安値未満かを判定します。
+        return np.logical_and(arr1, np.logical_not(arr2))
