@@ -63,8 +63,11 @@ class IndicatorBase(FinderMixin, metaclass=abc.ABCMeta):
         if data is None:
             # indicatorを組み立てます。
             data = self._build_indicator(span=self.__span, **self.__kwds)
-            instance.add_data(data=data, klass=self.__class__, stock=self.stock,
-                              span=self.__span, **self.__kwds)
+            instance.add_data(data=data,
+                              klass=self.__class__,
+                              stock=self.stock,
+                              span=self.__span,
+                              **self.__kwds)
         self.__data = data
 
     def get(self, idx):
@@ -94,7 +97,8 @@ class IndicatorBase(FinderMixin, metaclass=abc.ABCMeta):
                 ]
 
         Args:
-            price_type: 参照する値段の種別（open_price, high_price, low_price, close_price）
+            price_type: 参照する値段の種別（
+                open_price, high_price, low_price, close_price）
 
         Returns:
             新しく生成したnumpyの配列
@@ -108,16 +112,23 @@ class IndicatorBase(FinderMixin, metaclass=abc.ABCMeta):
 
         data = [getattr(hist, price_type) for hist in self.stock.histories]
 
-        li1 = np.empty((self.__span-1, self.__span), dtype=np.float64)
-        li1.fill(np.nan)
+        if len(data) < self.__span:
+            # データが不足していて指標作成不能な場合はすべてnanで埋めた、
+            # shapeが(時系列データ数, 期間)の配列を返します。
+            s_nan_arr = np.empty((len(data), self.__span), dtype=np.float64)
+            s_nan_arr.fill(np.nan)
+            return s_nan_arr
 
-        if len(data) < self.__span:  # データが不足していて指標作成不能な場合
-            return li1
+        # nanで埋める分の配列を用意します。
+        nan_arr = np.empty((self.__span-1, self.__span), dtype=np.float64)
+        nan_arr.fill(np.nan)
 
-        li2 = np.array([data[i:i+self.__span]
-                        for i in range(len(self.stock.histories)-self.__span+1)],
-                       dtype=np.float64)
-        spanned_data = np.concatenate((li1, li2), axis=0)
+        # データが入る配列を作成します。
+        data_arr = np.array([data[i: i + self.__span]
+                             for i in range(len(
+                                     self.stock.histories) - self.__span + 1)],
+                            dtype=np.float64)
+        spanned_data = np.concatenate((nan_arr, data_arr), axis=0)
         logger.debug('spanned_data: {}'.format(spanned_data))
 
         return spanned_data
@@ -175,7 +186,8 @@ class IndicatorCache(SingletonMixin):
             return None
 
         return '{}-symbol:{}-{}'.format(klass.__name__, stock.symbol,
-                                        '-'.join(['{}:{}'.format(k, v) for k, v in kwds.items()]))
+                                        '-'.join(['{}:{}'.format(k, v)
+                                                  for k, v in kwds.items()]))
 
     def get_data(self, klass, stock, **kwds):
         """キャッシュからindicatorのデータを取得します。ヒットしない場合はNoneが返ります。
